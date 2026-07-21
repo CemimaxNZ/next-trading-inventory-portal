@@ -118,7 +118,170 @@ export default async function PurchaseOrdersPage() {
         description="Change an order to Arrived to automatically increase current stock and log a transaction."
         title="Purchase Order List"
       >
-        <div className="overflow-x-auto">
+        <div className="space-y-4 md:hidden">
+          {purchaseOrders.map((purchaseOrder) => {
+            const items = orderItemsMap.get(purchaseOrder.id) ?? [];
+
+            return (
+              <article
+                className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                key={purchaseOrder.id}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
+                      PO Number
+                    </p>
+                    <p className="mt-1 text-base font-semibold text-slate-950">{purchaseOrder.po_number}</p>
+                  </div>
+                  <StatusBadge value={purchaseOrder.status} />
+                </div>
+
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Supplier</p>
+                    <p className="mt-1 text-slate-700">{purchaseOrder.supplier}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Order Date</p>
+                    <p className="mt-1 text-slate-700">{formatDate(purchaseOrder.order_date)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Total Quantity</p>
+                    <p className="mt-1 font-semibold text-slate-950">
+                      {totalQuantityByOrder.get(purchaseOrder.id) ?? 0}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Products</p>
+                  {items.map((item) => {
+                    const product = productMap.get(item.product_id);
+
+                    return (
+                      <div className="rounded-2xl bg-slate-50 px-3 py-3" key={item.id}>
+                        <p className="font-medium text-slate-900">{product?.name ?? "Unknown product"}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {product?.sku ?? "No SKU"} • Qty {item.quantity}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {canUpdateStatus ? (
+                  <form action={updatePurchaseOrderStatusAction} className="flex flex-col gap-2">
+                    <input name="id" type="hidden" value={purchaseOrder.id} />
+                    <select className="input-field py-2" defaultValue={purchaseOrder.status} name="status">
+                      {purchaseOrderStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status.replace("_", " ").toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                      Update Status
+                    </SubmitButton>
+                  </form>
+                ) : null}
+
+                {isAdmin ? (
+                  <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                      Edit purchase order
+                    </summary>
+                    <div className="mt-4 space-y-4">
+                      <form action={updatePurchaseOrderAction} className="space-y-5">
+                        <input name="id" type="hidden" value={purchaseOrder.id} />
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="field-label" htmlFor={`po-number-mobile-${purchaseOrder.id}`}>
+                              PO Number
+                            </label>
+                            <input
+                              className="input-field"
+                              defaultValue={purchaseOrder.po_number}
+                              id={`po-number-mobile-${purchaseOrder.id}`}
+                              name="po_number"
+                              required
+                              type="text"
+                            />
+                          </div>
+                          <div>
+                            <label className="field-label" htmlFor={`po-supplier-mobile-${purchaseOrder.id}`}>
+                              Supplier
+                            </label>
+                            <input
+                              className="input-field"
+                              defaultValue={purchaseOrder.supplier}
+                              id={`po-supplier-mobile-${purchaseOrder.id}`}
+                              name="supplier"
+                              required
+                              type="text"
+                            />
+                          </div>
+                          <div>
+                            <label className="field-label" htmlFor={`po-date-mobile-${purchaseOrder.id}`}>
+                              Order Date
+                            </label>
+                            <input
+                              className="input-field"
+                              defaultValue={purchaseOrder.order_date}
+                              id={`po-date-mobile-${purchaseOrder.id}`}
+                              name="order_date"
+                              required
+                              type="date"
+                            />
+                          </div>
+                          <div>
+                            <label className="field-label" htmlFor={`po-status-mobile-${purchaseOrder.id}`}>
+                              Status
+                            </label>
+                            <select
+                              className="input-field"
+                              defaultValue={purchaseOrder.status}
+                              id={`po-status-mobile-${purchaseOrder.id}`}
+                              name="status"
+                            >
+                              {purchaseOrderStatuses.map((status) => (
+                                <option key={status} value={status}>
+                                  {status.replace("_", " ").toUpperCase()}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <PurchaseOrderItemsFields
+                          initialItems={items.map((item) => ({
+                            product_id: item.product_id,
+                            quantity: item.quantity,
+                          }))}
+                          inputPrefix={`po-mobile-${purchaseOrder.id}`}
+                          products={productOptions}
+                        />
+
+                        <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                          Save Changes
+                        </SubmitButton>
+                      </form>
+
+                      <form action={deletePurchaseOrderAction}>
+                        <input name="id" type="hidden" value={purchaseOrder.id} />
+                        <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                          Delete Purchase Order
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </details>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 text-slate-500">
               <tr>
@@ -258,7 +421,7 @@ export default async function PurchaseOrdersPage() {
                       <div className="space-y-3">
                         <StatusBadge value={purchaseOrder.status} />
                         {canUpdateStatus ? (
-                          <form action={updatePurchaseOrderStatusAction} className="flex gap-2">
+                          <form action={updatePurchaseOrderStatusAction} className="flex flex-col gap-2 lg:flex-row">
                             <input name="id" type="hidden" value={purchaseOrder.id} />
                             <select className="input-field min-w-36 py-2" defaultValue={purchaseOrder.status} name="status">
                               {purchaseOrderStatuses.map((status) => (
