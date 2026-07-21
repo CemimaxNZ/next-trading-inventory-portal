@@ -6,6 +6,10 @@
   color-scheme: light;
 }
 
+html {
+  background: #eef8fc;
+}
+
 body {
   background-color: #eef8fc;
   background-image:
