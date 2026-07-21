@@ -113,7 +113,183 @@ export default async function ShipmentsPage() {
         description="Changing a shipment to Arrived automatically moves units from in-transit stock into current stock."
         title="Shipment List"
       >
-        <div className="overflow-x-auto">
+        <div className="space-y-4 md:hidden">
+          {shipments.map((shipment) => (
+            <article
+              className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+              key={shipment.id}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">Container</p>
+                  <p className="mt-1 text-base font-semibold text-slate-950">{shipment.container_number}</p>
+                </div>
+                <StatusBadge value={shipment.arrival_status} />
+              </div>
+
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Product</p>
+                  <p className="mt-1 text-slate-700">
+                    {productMap.get(shipment.product_id)?.name ?? "Unknown product"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Quantity</p>
+                  <p className="mt-1 font-semibold text-slate-950">{shipment.quantity}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETA</p>
+                  <p className="mt-1 text-slate-700">{formatDate(shipment.eta)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Linked PO</p>
+                  <p className="mt-1 text-slate-700">
+                    {shipment.linked_purchase_order_id
+                      ? orderMap.get(shipment.linked_purchase_order_id)?.po_number ?? "Unknown PO"
+                      : "None"}
+                  </p>
+                </div>
+              </div>
+
+              {canUpdateStatus ? (
+                <form action={updateShipmentStatusAction} className="flex flex-col gap-2">
+                  <input name="id" type="hidden" value={shipment.id} />
+                  <select className="input-field py-2" defaultValue={shipment.arrival_status} name="status">
+                    {shipmentStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status.replace("_", " ").toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                  <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                    Update Status
+                  </SubmitButton>
+                </form>
+              ) : null}
+
+              {isAdmin ? (
+                <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                    Edit shipment
+                  </summary>
+                  <div className="mt-4 space-y-4">
+                    <form action={updateShipmentAction} className="grid gap-4 sm:grid-cols-2">
+                      <input name="id" type="hidden" value={shipment.id} />
+                      <div>
+                        <label className="field-label" htmlFor={`container-mobile-${shipment.id}`}>
+                          Container Number
+                        </label>
+                        <input
+                          className="input-field"
+                          defaultValue={shipment.container_number}
+                          id={`container-mobile-${shipment.id}`}
+                          name="container_number"
+                          required
+                          type="text"
+                        />
+                      </div>
+                      <div>
+                        <label className="field-label" htmlFor={`product-mobile-${shipment.id}`}>
+                          Product
+                        </label>
+                        <select
+                          className="input-field"
+                          defaultValue={shipment.product_id}
+                          id={`product-mobile-${shipment.id}`}
+                          name="product_id"
+                          required
+                        >
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name} ({product.sku})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="field-label" htmlFor={`quantity-mobile-${shipment.id}`}>
+                          Quantity
+                        </label>
+                        <input
+                          className="input-field"
+                          defaultValue={shipment.quantity}
+                          id={`quantity-mobile-${shipment.id}`}
+                          min="1"
+                          name="quantity"
+                          required
+                          type="number"
+                        />
+                      </div>
+                      <div>
+                        <label className="field-label" htmlFor={`eta-mobile-${shipment.id}`}>
+                          ETA
+                        </label>
+                        <input
+                          className="input-field"
+                          defaultValue={shipment.eta}
+                          id={`eta-mobile-${shipment.id}`}
+                          name="eta"
+                          required
+                          type="date"
+                        />
+                      </div>
+                      <div>
+                        <label className="field-label" htmlFor={`status-mobile-${shipment.id}`}>
+                          Arrival Status
+                        </label>
+                        <select
+                          className="input-field"
+                          defaultValue={shipment.arrival_status}
+                          id={`status-mobile-${shipment.id}`}
+                          name="arrival_status"
+                        >
+                          {shipmentStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {status.replace("_", " ").toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="field-label" htmlFor={`linked-po-mobile-${shipment.id}`}>
+                          Linked Purchase Order
+                        </label>
+                        <select
+                          className="input-field"
+                          defaultValue={shipment.linked_purchase_order_id ?? ""}
+                          id={`linked-po-mobile-${shipment.id}`}
+                          name="linked_purchase_order_id"
+                        >
+                          <option value="">Optional</option>
+                          {orders.map((order) => (
+                            <option key={order.id} value={order.id}>
+                              {order.po_number}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                          Save Changes
+                        </SubmitButton>
+                      </div>
+                    </form>
+
+                    <form action={deleteShipmentAction}>
+                      <input name="id" type="hidden" value={shipment.id} />
+                      <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                        Delete Shipment
+                      </SubmitButton>
+                    </form>
+                  </div>
+                </details>
+              ) : null}
+            </article>
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 text-slate-500">
               <tr>
@@ -262,7 +438,7 @@ export default async function ShipmentsPage() {
                     <div className="space-y-3">
                       <StatusBadge value={shipment.arrival_status} />
                       {canUpdateStatus ? (
-                        <form action={updateShipmentStatusAction} className="flex gap-2">
+                        <form action={updateShipmentStatusAction} className="flex flex-col gap-2 lg:flex-row">
                           <input name="id" type="hidden" value={shipment.id} />
                           <select className="input-field min-w-36 py-2" defaultValue={shipment.arrival_status} name="status">
                             {shipmentStatuses.map((status) => (
@@ -287,4 +463,3 @@ export default async function ShipmentsPage() {
     </>
   );
 }
-
