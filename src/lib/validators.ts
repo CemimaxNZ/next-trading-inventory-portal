@@ -11,6 +11,7 @@ export const productSchema = z.object({
   name: z.string().trim().min(2),
   sku: z.string().trim().min(2),
   category: z.enum(productCategories),
+    current_stock: z.coerce.number().int().min(0),
   low_stock_warning_level: z.coerce.number().int().min(0),
 });
 
