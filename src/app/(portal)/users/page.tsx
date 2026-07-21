@@ -87,7 +87,75 @@ export default async function UsersPage() {
         description="Manage role assignments and remove accounts when needed."
         title="Current Users"
       >
-        <div className="overflow-x-auto">
+        <div className="space-y-4 md:hidden">
+          {users.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+              No users found yet.
+            </div>
+          ) : users.map((user) => {
+            const profile = profileMap.get(user.id);
+
+            return (
+              <article
+                className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                key={user.id}
+              >
+                <div>
+                  <p className="text-base font-semibold text-slate-950">
+                    {profile?.full_name ?? user.user_metadata?.full_name ?? "Unnamed user"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                </div>
+
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Role</p>
+                    <p className="mt-1 text-slate-700">{formatEnumLabel(profile?.role ?? "viewer")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Created</p>
+                    <p className="mt-1 text-slate-700">{formatDate(user.created_at)}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Last Sign In</p>
+                    <p className="mt-1 text-slate-700">
+                      {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : "Never"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <form action={updateUserRoleAction} className="flex flex-col gap-2">
+                    <input name="id" type="hidden" value={user.id} />
+                    <select
+                      className="input-field py-2"
+                      defaultValue={profile?.role ?? "viewer"}
+                      name="role"
+                    >
+                      {appRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {formatEnumLabel(role)}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                      Update Role
+                    </SubmitButton>
+                  </form>
+
+                  <form action={deleteUserAction}>
+                    <input name="id" type="hidden" value={user.id} />
+                    <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                      Delete User
+                    </SubmitButton>
+                  </form>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 text-slate-500">
               <tr>
@@ -123,7 +191,7 @@ export default async function UsersPage() {
                     </td>
                     <td className="py-4">
                       <div className="flex flex-col gap-3">
-                        <form action={updateUserRoleAction} className="flex flex-wrap gap-2">
+                        <form action={updateUserRoleAction} className="flex flex-col gap-2 lg:flex-row">
                           <input name="id" type="hidden" value={user.id} />
                           <select
                             className="input-field min-w-36 py-2"
