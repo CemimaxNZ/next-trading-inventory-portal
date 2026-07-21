@@ -17,7 +17,7 @@ export function SidebarNav({ role }: SidebarNavProps) {
   return (
     <nav className="flex gap-2 overflow-x-auto md:flex-col">
       {items.map((item) => {
-        const isActive = pathname === item.href;
+        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
         return (
           <Link

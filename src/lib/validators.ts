@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { appRoles, purchaseOrderStatuses, shipmentStatuses } from "@/lib/constants";
+import { productCategories } from "@/lib/products";
 
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -9,6 +10,7 @@ export const loginSchema = z.object({
 export const productSchema = z.object({
   name: z.string().trim().min(2),
   sku: z.string().trim().min(2),
+  category: z.enum(productCategories),
   low_stock_warning_level: z.coerce.number().int().min(0),
 });
 

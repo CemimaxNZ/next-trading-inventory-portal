@@ -2,8 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePortalUser } from "@/lib/session";
+import { productCategories } from "@/lib/products";
 import { tableMutation } from "@/lib/supabase/mutations";
 import { productSchema } from "@/lib/validators";
+
+function revalidateProductPaths() {
+  revalidatePath("/");
+  revalidatePath("/products");
+
+  for (const category of productCategories) {
+    revalidatePath(`/products/${category}`);
+  }
+}
 
 export async function createProductAction(formData: FormData) {
   const { supabase } = await requirePortalUser("admin");
@@ -11,6 +21,7 @@ export async function createProductAction(formData: FormData) {
   const parsed = productSchema.parse({
     name: String(formData.get("name") ?? ""),
     sku: String(formData.get("sku") ?? "").toUpperCase(),
+    category: String(formData.get("category") ?? ""),
     low_stock_warning_level: formData.get("low_stock_warning_level"),
   });
 
@@ -20,8 +31,7 @@ export async function createProductAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath("/");
-  revalidatePath("/products");
+  revalidateProductPaths();
 }
 
 export async function updateProductAction(formData: FormData) {
@@ -31,6 +41,7 @@ export async function updateProductAction(formData: FormData) {
   const parsed = productSchema.parse({
     name: String(formData.get("name") ?? ""),
     sku: String(formData.get("sku") ?? "").toUpperCase(),
+    category: String(formData.get("category") ?? ""),
     low_stock_warning_level: formData.get("low_stock_warning_level"),
   });
 
@@ -40,8 +51,7 @@ export async function updateProductAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath("/");
-  revalidatePath("/products");
+  revalidateProductPaths();
 }
 
 export async function deleteProductAction(formData: FormData) {
@@ -54,6 +64,5 @@ export async function deleteProductAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath("/");
-  revalidatePath("/products");
+  revalidateProductPaths();
 }

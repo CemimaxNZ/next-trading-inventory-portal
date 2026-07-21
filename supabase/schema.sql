@@ -1,6 +1,7 @@
 create extension if not exists pgcrypto;
 
 create type public.app_role as enum ('admin', 'operator', 'viewer');
+create type public.product_category as enum ('cemimax', 'accessories');
 create type public.purchase_order_status as enum ('paid', 'ready', 'shipped', 'arrived');
 create type public.shipment_status as enum ('at_sea', 'arrived', 'completed');
 create type public.inventory_transaction_type as enum (
@@ -25,6 +26,7 @@ create table public.products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   sku text not null unique,
+  category public.product_category not null default 'cemimax',
   current_stock integer not null default 0 check (current_stock >= 0),
   in_transit_stock integer not null default 0 check (in_transit_stock >= 0),
   low_stock_warning_level integer not null default 10 check (low_stock_warning_level >= 0),
@@ -71,6 +73,7 @@ create table public.inventory_transactions (
 );
 
 create index products_sku_idx on public.products (sku);
+create index products_category_idx on public.products (category);
 create index purchase_orders_product_idx on public.purchase_orders (product_id);
 create index purchase_orders_status_idx on public.purchase_orders (status);
 create index shipments_product_idx on public.shipments (product_id);

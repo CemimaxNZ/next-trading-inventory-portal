@@ -4,6 +4,7 @@ export type Database = {
   public: {
     Enums: {
       app_role: "admin" | "operator" | "viewer";
+      product_category: "cemimax" | "accessories";
       purchase_order_status: "paid" | "ready" | "shipped" | "arrived";
       shipment_status: "at_sea" | "arrived" | "completed";
       inventory_transaction_type:
@@ -45,6 +46,7 @@ export type Database = {
           id: string;
           name: string;
           sku: string;
+          category: Database["public"]["Enums"]["product_category"];
           current_stock: number;
           in_transit_stock: number;
           low_stock_warning_level: number;
@@ -55,6 +57,7 @@ export type Database = {
           id?: string;
           name: string;
           sku: string;
+          category?: Database["public"]["Enums"]["product_category"];
           current_stock?: number;
           in_transit_stock?: number;
           low_stock_warning_level?: number;
@@ -64,6 +67,7 @@ export type Database = {
         Update: {
           name?: string;
           sku?: string;
+          category?: Database["public"]["Enums"]["product_category"];
           current_stock?: number;
           in_transit_stock?: number;
           low_stock_warning_level?: number;
@@ -212,6 +216,7 @@ export type Database = {
 };
 
 export type AppRole = Database["public"]["Enums"]["app_role"];
+export type ProductCategory = Database["public"]["Enums"]["product_category"];
 export type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 export type PurchaseOrderRow = Database["public"]["Tables"]["purchase_orders"]["Row"];
