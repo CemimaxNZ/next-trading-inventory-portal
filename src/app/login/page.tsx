@@ -9,9 +9,27 @@ export default async function LoginPage({
   const { error, next } = await searchParams;
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10">
+    <main className="flex min-h-screen items-stretch justify-center px-4 py-5 sm:items-center sm:py-10">
       <div className="grid w-full max-w-5xl gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="brand-panel p-8 md:p-10">
+        <section className="card-surface order-1 p-6 sm:p-8 md:p-10 lg:order-2">
+          <p className="text-sm font-medium uppercase tracking-[0.28em] text-brand-700">Staff Sign In</p>
+          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">Welcome back</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Use your internal account to access the portal.
+          </p>
+
+          {error ? (
+            <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {decodeURIComponent(error)}
+            </div>
+          ) : null}
+
+          <div className="mt-8">
+            <LoginForm nextPath={next} />
+          </div>
+        </section>
+
+        <section className="brand-panel order-2 p-6 sm:p-8 md:p-10 lg:order-1">
           <div className="inline-flex flex-col">
             <Image
               src="/brand/next-logo-black.png"
@@ -33,24 +51,6 @@ export default async function LoginPage({
           <p className="mt-4 max-w-xl text-base text-slate-900/78">
             Track inventory, manage purchase orders, monitor shipments, and keep every stock movement recorded in one secure internal workspace.
           </p>
-        </section>
-
-        <section className="card-surface p-8 md:p-10">
-          <p className="text-sm font-medium uppercase tracking-[0.28em] text-brand-700">Staff Sign In</p>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">Welcome back</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Use your internal account to access the portal.
-          </p>
-
-          {error ? (
-            <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {decodeURIComponent(error)}
-            </div>
-          ) : null}
-
-          <div className="mt-8">
-            <LoginForm nextPath={next} />
-          </div>
         </section>
       </div>
     </main>
