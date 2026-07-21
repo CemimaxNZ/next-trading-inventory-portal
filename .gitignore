@@ -2,6 +2,7 @@
 node_modules
 .vercel
 .git-repo
+.project-ssh
 .env.local
 .env*.local
 npm-debug.log*

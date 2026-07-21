@@ -1,5 +1,11 @@
 #!/bin/sh
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+KEY_PATH="$SCRIPT_DIR/.project-ssh/id_ed25519"
+KNOWN_HOSTS_PATH="$SCRIPT_DIR/.project-ssh/known_hosts"
+
+if [ "${REPO_GIT_USE_PROJECT_SSH:-0}" = "1" ] && [ -f "$KEY_PATH" ]; then
+  export GIT_SSH_COMMAND="ssh -i \"$KEY_PATH\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=\"$KNOWN_HOSTS_PATH\""
+fi
 
 exec git --git-dir="$SCRIPT_DIR/.git-repo" --work-tree="$SCRIPT_DIR" "$@"
