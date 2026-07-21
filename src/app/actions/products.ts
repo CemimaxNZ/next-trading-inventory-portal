@@ -24,7 +24,7 @@ export async function createProductAction(formData: FormData) {
     name: String(formData.get("name") ?? ""),
     sku: String(formData.get("sku") ?? "").toUpperCase(),
     category: String(formData.get("category") ?? ""),
-        current_stock: formData.get("current_stock"),
+    current_stock: formData.get("current_stock"),
     low_stock_warning_level: formData.get("low_stock_warning_level"),
   });
 
@@ -45,7 +45,7 @@ export async function updateProductAction(formData: FormData) {
     name: String(formData.get("name") ?? ""),
     sku: String(formData.get("sku") ?? "").toUpperCase(),
     category: String(formData.get("category") ?? ""),
-        current_stock: formData.get("current_stock"),
+    current_stock: formData.get("current_stock"),
     low_stock_warning_level: formData.get("low_stock_warning_level"),
   });
 
