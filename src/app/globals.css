@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: #eef8fc;
+  background-image:
+    radial-gradient(circle at top left, rgba(124, 203, 230, 0.35), transparent 28%),
+    radial-gradient(circle at top right, rgba(15, 23, 42, 0.05), transparent 24%),
+    linear-gradient(rgba(63, 147, 178, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(63, 147, 178, 0.08) 1px, transparent 1px);
+  @apply min-h-screen bg-[size:auto,auto,28px_28px,28px_28px] text-slate-900 antialiased;
+}
+
+a {
+  @apply text-inherit no-underline;
+}
+
+@layer components {
+  .card-surface {
+    @apply rounded-3xl border border-brand-100/80 bg-white/90 shadow-card backdrop-blur;
+  }
+
+  .field-label {
+    @apply mb-2 block text-sm font-medium text-slate-700;
+  }
+
+  .input-field {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100;
+  }
+
+  .textarea-field {
+    @apply input-field min-h-28 resize-y;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-2xl bg-brand-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-brand-300 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-2xl border border-brand-100 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-brand-200 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .kpi-value {
+    @apply text-3xl font-semibold tracking-tight text-slate-950;
+  }
+
+  .brand-panel {
+    background-image:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.42), transparent 32%),
+      linear-gradient(160deg, #90d8ee 0%, #7ccbe6 52%, #72c4e2 100%);
+    @apply overflow-hidden rounded-[2rem] border border-white/60 shadow-card;
+  }
+}

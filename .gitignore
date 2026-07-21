@@ -1,0 +1,16 @@
+.next
+node_modules
+.vercel
+.git-repo
+.env.local
+.env*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage
+dist
+outputs
+work
+*.tsbuildinfo
+.DS_Store

@@ -1,0 +1,161 @@
+import {
+  createUserAction,
+  deleteUserAction,
+  updateUserRoleAction,
+} from "@/app/actions/users";
+import { SubmitButton } from "@/components/forms/submit-button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionCard } from "@/components/ui/section-card";
+import { appRoles } from "@/lib/constants";
+import type { ProfileRow } from "@/lib/database.types";
+import { canManageUsers } from "@/lib/permissions";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { requirePortalUser } from "@/lib/session";
+import { formatDate, formatEnumLabel } from "@/lib/utils";
+
+export default async function UsersPage() {
+  const { profile: currentProfile } = await requirePortalUser("admin");
+  const canManage = canManageUsers(currentProfile.role);
+  const adminClient = createAdminSupabaseClient();
+
+  const [{ data: profilesData }, { data: usersData, error: usersError }] = await Promise.all([
+    adminClient.from("profiles").select("*").order("full_name"),
+    adminClient.auth.admin.listUsers(),
+  ]);
+
+  if (usersError) {
+    throw new Error(usersError.message);
+  }
+
+  const profiles = (profilesData ?? []) as ProfileRow[];
+  const users = usersData.users ?? [];
+  const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  return (
+    <>
+      <PageHeader
+        description="Admins can create staff accounts and assign operational roles."
+        title="User Management"
+      />
+
+      {canManage ? (
+        <SectionCard
+          description="Create a new internal user with a starting role."
+          title="Add User"
+        >
+          <form action={createUserAction} className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="field-label" htmlFor="full_name">
+                Full Name
+              </label>
+              <input className="input-field" id="full_name" name="full_name" required type="text" />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="user-email">
+                Email
+              </label>
+              <input className="input-field" id="user-email" name="email" required type="email" />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="user-password">
+                Password
+              </label>
+              <input className="input-field" id="user-password" name="password" required type="password" />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="role">
+                Role
+              </label>
+              <select className="input-field" defaultValue="viewer" id="role" name="role">
+                {appRoles.map((role) => (
+                  <option key={role} value={role}>
+                    {formatEnumLabel(role)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <SubmitButton className="btn-primary" pendingLabel="Creating...">
+                Create User
+              </SubmitButton>
+            </div>
+          </form>
+        </SectionCard>
+      ) : null}
+
+      <SectionCard
+        description="Manage role assignments and remove accounts when needed."
+        title="Current Users"
+      >
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-slate-200 text-slate-500">
+              <tr>
+                <th className="pb-3 font-medium">User</th>
+                <th className="pb-3 font-medium">Role</th>
+                <th className="pb-3 font-medium">Created</th>
+                <th className="pb-3 font-medium">Last Sign In</th>
+                <th className="pb-3 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.length === 0 ? (
+                <tr>
+                  <td className="py-4 text-slate-500" colSpan={5}>
+                    No users found yet.
+                  </td>
+                </tr>
+              ) : users.map((user) => {
+                const profile = profileMap.get(user.id);
+
+                return (
+                  <tr className="border-b border-slate-100 align-top last:border-b-0" key={user.id}>
+                    <td className="py-4">
+                      <p className="font-medium text-slate-950">
+                        {profile?.full_name ?? user.user_metadata?.full_name ?? "Unnamed user"}
+                      </p>
+                      <p className="text-sm text-slate-500">{user.email}</p>
+                    </td>
+                    <td className="py-4 text-slate-600">{formatEnumLabel(profile?.role ?? "viewer")}</td>
+                    <td className="py-4 text-slate-600">{formatDate(user.created_at)}</td>
+                    <td className="py-4 text-slate-600">
+                      {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : "Never"}
+                    </td>
+                    <td className="py-4">
+                      <div className="flex flex-col gap-3">
+                        <form action={updateUserRoleAction} className="flex flex-wrap gap-2">
+                          <input name="id" type="hidden" value={user.id} />
+                          <select
+                            className="input-field min-w-36 py-2"
+                            defaultValue={profile?.role ?? "viewer"}
+                            name="role"
+                          >
+                            {appRoles.map((role) => (
+                              <option key={role} value={role}>
+                                {formatEnumLabel(role)}
+                              </option>
+                            ))}
+                          </select>
+                          <SubmitButton className="btn-secondary" pendingLabel="Saving...">
+                            Update Role
+                          </SubmitButton>
+                        </form>
+
+                        <form action={deleteUserAction}>
+                          <input name="id" type="hidden" value={user.id} />
+                          <SubmitButton className="btn-danger" pendingLabel="Deleting...">
+                            Delete User
+                          </SubmitButton>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
+    </>
+  );
+}

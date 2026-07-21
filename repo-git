@@ -1,0 +1,5 @@
+#!/bin/sh
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+
+exec git --git-dir="$SCRIPT_DIR/.git-repo" --work-tree="$SCRIPT_DIR" "$@"
