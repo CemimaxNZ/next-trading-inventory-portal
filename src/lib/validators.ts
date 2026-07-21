@@ -14,13 +14,34 @@ export const productSchema = z.object({
   low_stock_warning_level: z.coerce.number().int().min(0),
 });
 
-export const purchaseOrderSchema = z.object({
-  po_number: z.string().trim().min(3),
+export const purchaseOrderItemSchema = z.object({
   product_id: z.string().uuid(),
   quantity: z.coerce.number().int().positive(),
+});
+
+export const purchaseOrderSchema = z.object({
+  po_number: z.string().trim().min(3),
   supplier: z.string().trim().min(2),
   order_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: z.enum(purchaseOrderStatuses),
+  items: z
+    .array(purchaseOrderItemSchema)
+    .min(1, "At least one product is required")
+    .superRefine((items, ctx) => {
+      const seen = new Set<string>();
+
+      items.forEach((item, index) => {
+        if (seen.has(item.product_id)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Each product can only appear once per PO.",
+            path: [index, "product_id"],
+          });
+        }
+
+        seen.add(item.product_id);
+      });
+    }),
 });
 
 export const purchaseOrderStatusSchema = z.object({

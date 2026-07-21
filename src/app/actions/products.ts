@@ -75,7 +75,7 @@ export async function deleteProductAction(formData: FormData) {
   const [{ count: purchaseOrderCount }, { count: shipmentCount }, { count: transactionCount }] =
     await Promise.all([
       supabase
-        .from("purchase_orders")
+        .from("purchase_order_items")
         .select("id", { count: "exact", head: true })
         .eq("product_id", id),
       supabase

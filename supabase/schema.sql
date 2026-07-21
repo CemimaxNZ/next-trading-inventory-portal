@@ -37,14 +37,22 @@ create table public.products (
 create table public.purchase_orders (
   id uuid primary key default gen_random_uuid(),
   po_number text not null unique,
-  product_id uuid not null references public.products (id) on delete restrict,
-  quantity integer not null check (quantity > 0),
   supplier text not null,
   order_date date not null,
   status public.purchase_order_status not null default 'paid',
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
+);
+
+create table public.purchase_order_items (
+  id uuid primary key default gen_random_uuid(),
+  purchase_order_id uuid not null references public.purchase_orders (id) on delete cascade,
+  product_id uuid not null references public.products (id) on delete restrict,
+  quantity integer not null check (quantity > 0),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (purchase_order_id, product_id)
 );
 
 create table public.shipments (
@@ -74,8 +82,9 @@ create table public.inventory_transactions (
 
 create index products_sku_idx on public.products (sku);
 create index products_category_idx on public.products (category);
-create index purchase_orders_product_idx on public.purchase_orders (product_id);
 create index purchase_orders_status_idx on public.purchase_orders (status);
+create index purchase_order_items_purchase_order_idx on public.purchase_order_items (purchase_order_id);
+create index purchase_order_items_product_idx on public.purchase_order_items (product_id);
 create index shipments_product_idx on public.shipments (product_id);
 create index shipments_status_idx on public.shipments (arrival_status);
 create index inventory_transactions_product_idx on public.inventory_transactions (product_id);
@@ -220,105 +229,265 @@ begin
 end;
 $$;
 
-create or replace function public.sync_purchase_order_stock()
-returns trigger
+create or replace function public.reconcile_purchase_order_inventory(
+  p_purchase_order_id uuid,
+  p_old_po_number text,
+  p_new_po_number text,
+  p_old_status public.purchase_order_status,
+  p_new_status public.purchase_order_status,
+  p_old_items jsonb,
+  p_new_items jsonb,
+  p_actor uuid default auth.uid()
+)
+returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  old_arrived_qty integer := case when tg_op <> 'INSERT' and old.status = 'arrived' then old.quantity else 0 end;
-  new_arrived_qty integer := case when tg_op <> 'DELETE' and new.status = 'arrived' then new.quantity else 0 end;
+  delta_record record;
 begin
-  if tg_op = 'INSERT' then
-    if new_arrived_qty > 0 then
-      perform public.apply_inventory_delta(new.product_id, new_arrived_qty, 0);
+  for delta_record in
+    with old_items as (
+      select
+        item.product_id,
+        sum(item.quantity)::integer as quantity
+      from jsonb_to_recordset(
+        case
+          when p_old_status = 'arrived' then coalesce(p_old_items, '[]'::jsonb)
+          else '[]'::jsonb
+        end
+      ) as item(product_id uuid, quantity integer)
+      group by item.product_id
+    ),
+    new_items as (
+      select
+        item.product_id,
+        sum(item.quantity)::integer as quantity
+      from jsonb_to_recordset(
+        case
+          when p_new_status = 'arrived' then coalesce(p_new_items, '[]'::jsonb)
+          else '[]'::jsonb
+        end
+      ) as item(product_id uuid, quantity integer)
+      group by item.product_id
+    )
+    select
+      coalesce(new_items.product_id, old_items.product_id) as product_id,
+      coalesce(new_items.quantity, 0) - coalesce(old_items.quantity, 0) as delta
+    from old_items
+    full join new_items using (product_id)
+    where coalesce(new_items.quantity, 0) <> coalesce(old_items.quantity, 0)
+  loop
+    perform public.apply_inventory_delta(delta_record.product_id, delta_record.delta, 0);
+
+    if delta_record.delta > 0 then
       perform public.record_inventory_transaction(
-        new.product_id,
-        new_arrived_qty,
+        delta_record.product_id,
+        delta_record.delta,
         'purchase_order_arrived',
-        'PO ' || new.po_number || ' marked as arrived',
+        'PO ' || coalesce(p_new_po_number, p_old_po_number) || ' marked as arrived',
         'purchase_orders',
-        new.id,
-        new.created_by
+        p_purchase_order_id,
+        p_actor
       );
-    end if;
-
-    return new;
-  end if;
-
-  if tg_op = 'DELETE' then
-    if old_arrived_qty > 0 then
-      perform public.apply_inventory_delta(old.product_id, -old_arrived_qty, 0);
+    else
       perform public.record_inventory_transaction(
-        old.product_id,
-        -old_arrived_qty,
+        delta_record.product_id,
+        delta_record.delta,
         'purchase_order_reversed',
-        'PO ' || old.po_number || ' arrival reversed by deletion',
+        'PO ' || coalesce(p_old_po_number, p_new_po_number) || ' arrival reversed',
         'purchase_orders',
-        old.id,
-        old.created_by
+        p_purchase_order_id,
+        p_actor
       );
     end if;
+  end loop;
+end;
+$$;
 
-    return old;
+create or replace function public.save_purchase_order(
+  p_purchase_order_id uuid default null,
+  p_po_number text,
+  p_supplier text,
+  p_order_date date,
+  p_status public.purchase_order_status,
+  p_items jsonb,
+  p_created_by uuid default auth.uid()
+)
+returns public.purchase_orders
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing_order public.purchase_orders;
+  saved_order public.purchase_orders;
+  old_items jsonb := '[]'::jsonb;
+  actor_id uuid := coalesce(auth.uid(), p_created_by);
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can manage purchase orders';
   end if;
 
-  if old.product_id = new.product_id then
-    if new_arrived_qty <> old_arrived_qty then
-      perform public.apply_inventory_delta(new.product_id, new_arrived_qty - old_arrived_qty, 0);
+  if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' then
+    raise exception 'Purchase order items must be a JSON array';
+  end if;
 
-      if new_arrived_qty > old_arrived_qty then
-        perform public.record_inventory_transaction(
-          new.product_id,
-          new_arrived_qty - old_arrived_qty,
-          'purchase_order_arrived',
-          'PO ' || new.po_number || ' marked as arrived',
-          'purchase_orders',
-          new.id,
-          auth.uid()
-        );
-      else
-        perform public.record_inventory_transaction(
-          new.product_id,
-          new_arrived_qty - old_arrived_qty,
-          'purchase_order_reversed',
-          'PO ' || new.po_number || ' arrival reversed',
-          'purchase_orders',
-          new.id,
-          auth.uid()
-        );
-      end if;
+  if jsonb_array_length(coalesce(p_items, '[]'::jsonb)) = 0 then
+    raise exception 'At least one purchase order item is required';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_to_recordset(p_items) as item(product_id uuid, quantity integer)
+    group by item.product_id
+    having count(*) > 1
+  ) then
+    raise exception 'Each product can only appear once per purchase order';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_to_recordset(p_items) as item(product_id uuid, quantity integer)
+    where item.quantity <= 0
+  ) then
+    raise exception 'Each purchase order line must have a quantity greater than zero';
+  end if;
+
+  if p_purchase_order_id is not null then
+    select *
+    into existing_order
+    from public.purchase_orders
+    where id = p_purchase_order_id
+    for update;
+
+    if not found then
+      raise exception 'Purchase order % not found', p_purchase_order_id;
     end if;
+
+    select coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'product_id', product_id,
+          'quantity', quantity
+        )
+      ),
+      '[]'::jsonb
+    )
+    into old_items
+    from public.purchase_order_items
+    where purchase_order_id = p_purchase_order_id;
+
+    update public.purchase_orders
+    set po_number = p_po_number,
+        supplier = p_supplier,
+        order_date = p_order_date,
+        status = p_status,
+        updated_at = timezone('utc', now())
+    where id = p_purchase_order_id
+    returning * into saved_order;
   else
-    if old_arrived_qty > 0 then
-      perform public.apply_inventory_delta(old.product_id, -old_arrived_qty, 0);
-      perform public.record_inventory_transaction(
-        old.product_id,
-        -old_arrived_qty,
-        'purchase_order_reversed',
-        'PO ' || old.po_number || ' moved away from product',
-        'purchase_orders',
-        old.id,
-        auth.uid()
-      );
-    end if;
-
-    if new_arrived_qty > 0 then
-      perform public.apply_inventory_delta(new.product_id, new_arrived_qty, 0);
-      perform public.record_inventory_transaction(
-        new.product_id,
-        new_arrived_qty,
-        'purchase_order_arrived',
-        'PO ' || new.po_number || ' marked as arrived',
-        'purchase_orders',
-        new.id,
-        auth.uid()
-      );
-    end if;
+    insert into public.purchase_orders (
+      po_number,
+      supplier,
+      order_date,
+      status,
+      created_by
+    )
+    values (
+      p_po_number,
+      p_supplier,
+      p_order_date,
+      p_status,
+      p_created_by
+    )
+    returning * into saved_order;
   end if;
 
-  return new;
+  delete from public.purchase_order_items
+  where purchase_order_id = saved_order.id;
+
+  insert into public.purchase_order_items (
+    purchase_order_id,
+    product_id,
+    quantity
+  )
+  select
+    saved_order.id,
+    item.product_id,
+    item.quantity
+  from jsonb_to_recordset(p_items) as item(product_id uuid, quantity integer);
+
+  perform public.reconcile_purchase_order_inventory(
+    saved_order.id,
+    existing_order.po_number,
+    saved_order.po_number,
+    coalesce(existing_order.status, 'paid'::public.purchase_order_status),
+    saved_order.status,
+    old_items,
+    p_items,
+    actor_id
+  );
+
+  return saved_order;
+end;
+$$;
+
+create or replace function public.delete_purchase_order(
+  p_purchase_order_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing_order public.purchase_orders;
+  old_items jsonb := '[]'::jsonb;
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can delete purchase orders';
+  end if;
+
+  select *
+  into existing_order
+  from public.purchase_orders
+  where id = p_purchase_order_id
+  for update;
+
+  if not found then
+    raise exception 'Purchase order % not found', p_purchase_order_id;
+  end if;
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'product_id', product_id,
+        'quantity', quantity
+      )
+    ),
+    '[]'::jsonb
+  )
+  into old_items
+  from public.purchase_order_items
+  where purchase_order_id = p_purchase_order_id;
+
+  perform public.reconcile_purchase_order_inventory(
+    existing_order.id,
+    existing_order.po_number,
+    existing_order.po_number,
+    existing_order.status,
+    'paid'::public.purchase_order_status,
+    old_items,
+    '[]'::jsonb,
+    auth.uid()
+  );
+
+  delete from public.purchase_orders
+  where id = p_purchase_order_id;
+
+  return true;
 end;
 $$;
 
@@ -509,17 +678,53 @@ security definer
 set search_path = public
 as $$
 declare
+  current_row public.purchase_orders;
   updated_row public.purchase_orders;
+  current_items jsonb := '[]'::jsonb;
 begin
   if not public.is_operator_or_admin() then
     raise exception 'Only admins or operators can update purchase order status';
   end if;
+
+  select *
+  into current_row
+  from public.purchase_orders
+  where id = p_purchase_order_id
+  for update;
+
+  if not found then
+    raise exception 'Purchase order % not found', p_purchase_order_id;
+  end if;
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'product_id', product_id,
+        'quantity', quantity
+      )
+    ),
+    '[]'::jsonb
+  )
+  into current_items
+  from public.purchase_order_items
+  where purchase_order_id = p_purchase_order_id;
 
   update public.purchase_orders
   set status = p_status,
       updated_at = timezone('utc', now())
   where id = p_purchase_order_id
   returning * into updated_row;
+
+  perform public.reconcile_purchase_order_inventory(
+    updated_row.id,
+    current_row.po_number,
+    updated_row.po_number,
+    current_row.status,
+    updated_row.status,
+    current_items,
+    current_items,
+    auth.uid()
+  );
 
   return updated_row;
 end;
@@ -563,6 +768,10 @@ create trigger purchase_orders_set_updated_at
 before update on public.purchase_orders
 for each row execute procedure public.set_updated_at();
 
+create trigger purchase_order_items_set_updated_at
+before update on public.purchase_order_items
+for each row execute procedure public.set_updated_at();
+
 create trigger shipments_set_updated_at
 before update on public.shipments
 for each row execute procedure public.set_updated_at();
@@ -571,10 +780,6 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
-create trigger purchase_orders_stock_sync
-after insert or update or delete on public.purchase_orders
-for each row execute procedure public.sync_purchase_order_stock();
-
 create trigger shipments_stock_sync
 after insert or update or delete on public.shipments
 for each row execute procedure public.sync_shipment_stock();
@@ -582,6 +787,7 @@ for each row execute procedure public.sync_shipment_stock();
 alter table public.profiles enable row level security;
 alter table public.products enable row level security;
 alter table public.purchase_orders enable row level security;
+alter table public.purchase_order_items enable row level security;
 alter table public.shipments enable row level security;
 alter table public.inventory_transactions enable row level security;
 
@@ -624,6 +830,19 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
+create policy "Authenticated users can read purchase order items"
+on public.purchase_order_items
+for select
+to authenticated
+using (true);
+
+create policy "Admins manage purchase order items"
+on public.purchase_order_items
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
 create policy "Authenticated users can read shipments"
 on public.shipments
 for select
@@ -656,9 +875,28 @@ revoke execute on function public.record_inventory_transaction(
   uuid,
   uuid
 ) from public;
-revoke execute on function public.sync_purchase_order_stock() from public;
+revoke execute on function public.reconcile_purchase_order_inventory(
+  uuid,
+  text,
+  text,
+  public.purchase_order_status,
+  public.purchase_order_status,
+  jsonb,
+  jsonb,
+  uuid
+) from public;
 revoke execute on function public.sync_shipment_stock() from public;
 revoke execute on function public.perform_stock_adjustment(uuid, text, integer, text) from public;
+revoke execute on function public.save_purchase_order(
+  uuid,
+  text,
+  text,
+  date,
+  public.purchase_order_status,
+  jsonb,
+  uuid
+) from public;
+revoke execute on function public.delete_purchase_order(uuid) from public;
 revoke execute on function public.update_purchase_order_status(uuid, public.purchase_order_status) from public;
 revoke execute on function public.update_shipment_status(uuid, public.shipment_status) from public;
 revoke execute on function public.current_user_role() from public;
@@ -672,5 +910,15 @@ grant execute on function public.current_user_role() to authenticated;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.is_operator_or_admin() to authenticated;
 grant execute on function public.perform_stock_adjustment(uuid, text, integer, text) to authenticated;
+grant execute on function public.save_purchase_order(
+  uuid,
+  text,
+  text,
+  date,
+  public.purchase_order_status,
+  jsonb,
+  uuid
+) to authenticated;
+grant execute on function public.delete_purchase_order(uuid) to authenticated;
 grant execute on function public.update_purchase_order_status(uuid, public.purchase_order_status) to authenticated;
 grant execute on function public.update_shipment_status(uuid, public.shipment_status) to authenticated;

@@ -79,8 +79,6 @@ export type Database = {
         Row: {
           id: string;
           po_number: string;
-          product_id: string;
-          quantity: number;
           supplier: string;
           order_date: string;
           status: Database["public"]["Enums"]["purchase_order_status"];
@@ -91,8 +89,6 @@ export type Database = {
         Insert: {
           id?: string;
           po_number: string;
-          product_id: string;
-          quantity: number;
           supplier: string;
           order_date: string;
           status?: Database["public"]["Enums"]["purchase_order_status"];
@@ -102,12 +98,35 @@ export type Database = {
         };
         Update: {
           po_number?: string;
-          product_id?: string;
-          quantity?: number;
           supplier?: string;
           order_date?: string;
           status?: Database["public"]["Enums"]["purchase_order_status"];
           created_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      purchase_order_items: {
+        Row: {
+          id: string;
+          purchase_order_id: string;
+          product_id: string;
+          quantity: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          purchase_order_id: string;
+          product_id: string;
+          quantity: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          purchase_order_id?: string;
+          product_id?: string;
+          quantity?: number;
           updated_at?: string;
         };
         Relationships: [];
@@ -203,6 +222,24 @@ export type Database = {
         };
         Returns: Database["public"]["Tables"]["purchase_orders"]["Row"];
       };
+      save_purchase_order: {
+        Args: {
+          p_purchase_order_id?: string | null;
+          p_po_number: string;
+          p_supplier: string;
+          p_order_date: string;
+          p_status: Database["public"]["Enums"]["purchase_order_status"];
+          p_items: Json;
+          p_created_by?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["purchase_orders"]["Row"];
+      };
+      delete_purchase_order: {
+        Args: {
+          p_purchase_order_id: string;
+        };
+        Returns: boolean;
+      };
       update_shipment_status: {
         Args: {
           p_shipment_id: string;
@@ -220,6 +257,7 @@ export type ProductCategory = Database["public"]["Enums"]["product_category"];
 export type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 export type PurchaseOrderRow = Database["public"]["Tables"]["purchase_orders"]["Row"];
+export type PurchaseOrderItemRow = Database["public"]["Tables"]["purchase_order_items"]["Row"];
 export type ShipmentRow = Database["public"]["Tables"]["shipments"]["Row"];
 export type InventoryTransactionRow =
   Database["public"]["Tables"]["inventory_transactions"]["Row"];
