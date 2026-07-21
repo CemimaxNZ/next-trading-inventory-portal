@@ -45,7 +45,7 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
           description={`Add a new ${meta.label.toLowerCase()} record to the inventory catalog.`}
           title={`Create ${meta.label.slice(0, -1)}`}
         >
-          <form action={createProductAction} className="grid gap-4 md:grid-cols-4">
+          <form action={createProductAction} className="grid gap-4 md:grid-cols-5">
             <input name="category" type="hidden" value={category} />
             <div>
               <label className="field-label" htmlFor="name">
@@ -58,6 +58,20 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
                 SKU
               </label>
               <input className="input-field" id="sku" name="sku" required type="text" />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="current_stock">
+                Current Stock
+              </label>
+              <input
+                className="input-field"
+                defaultValue="0"
+                id="current_stock"
+                min="0"
+                name="current_stock"
+                required
+                type="number"
+              />
             </div>
             <div>
               <label className="field-label" htmlFor="low_stock_warning_level">
@@ -84,7 +98,7 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
                 value={meta.label}
               />
             </div>
-            <div className="md:col-span-4">
+            <div className="md:col-span-5">
               <SubmitButton className="btn-primary" pendingLabel="Creating...">
                 Create Product
               </SubmitButton>
@@ -123,7 +137,7 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
                             Edit product
                           </summary>
                           <div className="mt-4 space-y-4">
-                            <form action={updateProductAction} className="grid gap-4 md:grid-cols-4">
+                            <form action={updateProductAction} className="grid gap-4 md:grid-cols-5">
                               <input name="id" type="hidden" value={product.id} />
                               <div>
                                 <label className="field-label" htmlFor={`name-${product.id}`}>
@@ -169,6 +183,20 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
                                 </select>
                               </div>
                               <div>
+                                <label className="field-label" htmlFor={`stock-${product.id}`}>
+                                  Current Stock
+                                </label>
+                                <input
+                                  className="input-field"
+                                  defaultValue={product.current_stock}
+                                  id={`stock-${product.id}`}
+                                  min="0"
+                                  name="current_stock"
+                                  required
+                                  type="number"
+                                />
+                              </div>
+                              <div>
                                 <label className="field-label" htmlFor={`warning-${product.id}`}>
                                   Low Stock Warning Level
                                 </label>
@@ -182,7 +210,7 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
                                   type="number"
                                 />
                               </div>
-                              <div className="md:col-span-4">
+                              <div className="md:col-span-5">
                                 <SubmitButton className="btn-secondary" pendingLabel="Saving...">
                                   Save Changes
                                 </SubmitButton>
