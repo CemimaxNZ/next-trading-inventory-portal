@@ -8,14 +8,17 @@ export function generateStaticParams() {
 
 export default async function ProductCategoryRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ category: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { category } = await params;
+  const { error } = await searchParams;
 
   if (!isProductCategory(category)) {
     notFound();
   }
 
-  return <ProductCategoryPage category={category} />;
+  return <ProductCategoryPage category={category} error={error} />;
 }

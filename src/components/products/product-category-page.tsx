@@ -14,9 +14,10 @@ import { requirePortalUser } from "@/lib/session";
 
 type ProductCategoryPageProps = {
   category: ProductCategory;
+  error?: string;
 };
 
-export async function ProductCategoryPage({ category }: ProductCategoryPageProps) {
+export async function ProductCategoryPage({ category, error }: ProductCategoryPageProps) {
   const { supabase, profile } = await requirePortalUser();
   const { data } = await supabase
     .from("products")
@@ -32,6 +33,12 @@ export async function ProductCategoryPage({ category }: ProductCategoryPageProps
       <PageHeader description={meta.description} title={meta.label}>
         <ProductCategoryNav activeCategory={category} />
       </PageHeader>
+
+      {error ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          {error}
+        </div>
+      ) : null}
 
       {isAdmin ? (
         <SectionCard

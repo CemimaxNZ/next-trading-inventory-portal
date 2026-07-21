@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import type { ProductRow } from "@/lib/database.types";
 import { requirePortalUser } from "@/lib/session";
 import { productCategories } from "@/lib/products";
 import { tableMutation } from "@/lib/supabase/mutations";
@@ -58,10 +60,50 @@ export async function deleteProductAction(formData: FormData) {
   const { supabase } = await requirePortalUser("admin");
   const products = tableMutation(supabase, "products");
   const id = String(formData.get("id") ?? "");
+
+  const { data: productData } = await supabase
+    .from("products")
+    .select("category, name")
+    .eq("id", id)
+    .maybeSingle();
+  const product = productData as Pick<ProductRow, "category" | "name"> | null;
+
+  if (!product) {
+    redirect(`/products?error=${encodeURIComponent("Product could not be found.")}`);
+  }
+
+  const [{ count: purchaseOrderCount }, { count: shipmentCount }, { count: transactionCount }] =
+    await Promise.all([
+      supabase
+        .from("purchase_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("product_id", id),
+      supabase
+        .from("shipments")
+        .select("id", { count: "exact", head: true })
+        .eq("product_id", id),
+      supabase
+        .from("inventory_transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("product_id", id),
+    ]);
+
+  if ((purchaseOrderCount ?? 0) > 0 || (shipmentCount ?? 0) > 0 || (transactionCount ?? 0) > 0) {
+    redirect(
+      `/products/${product.category}?error=${encodeURIComponent(
+        `${product.name} cannot be deleted because it is already used by purchase orders, shipments, or inventory transactions. You can move it to another category or keep it for history.`,
+      )}`,
+    );
+  }
+
   const { error } = await products.delete().eq("id", id);
 
   if (error) {
-    throw new Error(error.message);
+    redirect(
+      `/products/${product.category}?error=${encodeURIComponent(
+        "This product could not be deleted because it is still referenced by other records.",
+      )}`,
+    );
   }
 
   revalidateProductPaths();
