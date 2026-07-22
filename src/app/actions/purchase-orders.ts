@@ -3,7 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ZodError } from "zod";
+import type {
+  InventoryTransactionRow,
+  ProductRow,
+  PurchaseOrderItemRow,
+  PurchaseOrderRow,
+} from "@/lib/database.types";
 import { requirePortalUser } from "@/lib/session";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { rpcMutation } from "@/lib/supabase/mutations";
 import {
   purchaseOrderSchema,
@@ -75,6 +82,107 @@ function getPurchaseOrderErrorMessage(error: unknown) {
 function redirectToPurchaseOrdersError(error: unknown) {
   const message = getPurchaseOrderErrorMessage(error);
   redirect(`/purchase-orders?error=${encodeURIComponent(message)}`);
+}
+
+function isMissingDeletePurchaseOrderFunction(error: { message: string } | null) {
+  return Boolean(
+    error?.message.includes("Could not find the function public.delete_purchase_order")
+    || error?.message.includes("schema cache"),
+  );
+}
+
+async function deletePurchaseOrderWithoutRpc({
+  purchaseOrderId,
+  performedBy,
+}: {
+  purchaseOrderId: string;
+  performedBy: string;
+}) {
+  const adminClient = createAdminSupabaseClient();
+
+  const [{ data: orderData }, { data: orderItemsData }] = await Promise.all([
+    adminClient
+      .from("purchase_orders")
+      .select("*")
+      .eq("id", purchaseOrderId)
+      .maybeSingle(),
+    adminClient
+      .from("purchase_order_items")
+      .select("*")
+      .eq("purchase_order_id", purchaseOrderId),
+  ]);
+
+  const purchaseOrder = orderData as PurchaseOrderRow | null;
+  const orderItems = (orderItemsData ?? []) as PurchaseOrderItemRow[];
+
+  if (!purchaseOrder) {
+    throw new Error(`Purchase order ${purchaseOrderId} not found`);
+  }
+
+  if (purchaseOrder.status === "arrived" && orderItems.length > 0) {
+    const productIds = orderItems.map((item) => item.product_id);
+    const { data: productsData } = await adminClient
+      .from("products")
+      .select("*")
+      .in("id", productIds);
+
+    const products = (productsData ?? []) as ProductRow[];
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const updatedAt = new Date().toISOString();
+
+    for (const item of orderItems) {
+      const product = productMap.get(item.product_id);
+
+      if (!product) {
+        throw new Error(`Product ${item.product_id} not found`);
+      }
+
+      const nextCurrentStock = product.current_stock - item.quantity;
+
+      if (nextCurrentStock < 0) {
+        throw new Error(`Current stock cannot become negative for product ${item.product_id}`);
+      }
+
+      const { error: productUpdateError } = await adminClient
+        .from("products")
+        .update({
+          current_stock: nextCurrentStock,
+          updated_at: updatedAt,
+        })
+        .eq("id", product.id);
+
+      if (productUpdateError) {
+        throw new Error(productUpdateError.message);
+      }
+    }
+
+    const transactionsToInsert = orderItems.map((item) => ({
+      product_id: item.product_id,
+      quantity: -item.quantity,
+      type: "purchase_order_reversed" as InventoryTransactionRow["type"],
+      reason: `PO ${purchaseOrder.po_number} arrival reversed`,
+      reference_table: "purchase_orders",
+      reference_id: purchaseOrder.id,
+      performed_by: performedBy,
+    }));
+
+    const { error: transactionInsertError } = await adminClient
+      .from("inventory_transactions")
+      .insert(transactionsToInsert);
+
+    if (transactionInsertError) {
+      throw new Error(transactionInsertError.message);
+    }
+  }
+
+  const { error: deleteError } = await adminClient
+    .from("purchase_orders")
+    .delete()
+    .eq("id", purchaseOrder.id);
+
+  if (deleteError) {
+    throw new Error(deleteError.message);
+  }
 }
 
 export async function createPurchaseOrderAction(formData: FormData) {
@@ -168,7 +276,7 @@ export async function updatePurchaseOrderStatusAction(formData: FormData) {
 }
 
 export async function deletePurchaseOrderAction(formData: FormData) {
-  const { supabase } = await requirePortalUser("admin");
+  const { supabase, profile } = await requirePortalUser("admin");
   const runRpc = rpcMutation(supabase);
 
   try {
@@ -177,7 +285,12 @@ export async function deletePurchaseOrderAction(formData: FormData) {
       p_purchase_order_id: id,
     });
 
-    if (error) {
+    if (isMissingDeletePurchaseOrderFunction(error)) {
+      await deletePurchaseOrderWithoutRpc({
+        purchaseOrderId: id,
+        performedBy: profile.id,
+      });
+    } else if (error) {
       throw new Error(error.message);
     }
 
