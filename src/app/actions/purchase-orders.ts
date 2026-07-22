@@ -30,6 +30,11 @@ type PurchaseOrderPayload = {
   items: PurchaseOrderItemInput[];
 };
 
+type LegacyPurchaseOrderRow = PurchaseOrderRow & {
+  product_id?: string | null;
+  quantity?: number | null;
+};
+
 function revalidatePurchaseOrderPaths() {
   revalidatePath("/");
   revalidatePath("/purchase-orders");
@@ -125,21 +130,22 @@ function isMissingRpcFunction(error: unknown, functionName: string) {
   );
 }
 
-function isLegacyPurchaseOrderConstraintError(error: unknown) {
-  const message = getErrorMessage(error);
-
-  return Boolean(
-    message.includes('null value in column "product_id" of relation "purchase_orders"')
-    || message.includes('null value in column "quantity" of relation "purchase_orders"'),
-  );
-}
-
 function isMissingPurchaseOrderColumnError(error: unknown) {
   const message = getErrorMessage(error);
 
   return Boolean(
     message.includes('column "product_id" of relation "purchase_orders" does not exist')
     || message.includes('column "quantity" of relation "purchase_orders" does not exist'),
+  );
+}
+
+function isMissingPurchaseOrderItemsTableError(error: unknown) {
+  const message = getErrorMessage(error);
+
+  return Boolean(
+    message.includes("Could not find the table 'public.purchase_order_items' in the schema cache")
+    || message.includes('relation "public.purchase_order_items" does not exist')
+    || message.includes('relation "purchase_order_items" does not exist'),
   );
 }
 
@@ -168,6 +174,49 @@ function getLegacyPurchaseOrderValues(items: PurchaseOrderItemInput[]) {
     product_id: firstItem.product_id,
     quantity: items.reduce((sum, item) => sum + item.quantity, 0),
   };
+}
+
+function getLegacyItemsFromPurchaseOrder(order: LegacyPurchaseOrderRow | null) {
+  if (!order?.product_id || typeof order.quantity !== "number" || order.quantity <= 0) {
+    return [] as PurchaseOrderItemInput[];
+  }
+
+  return [
+    {
+      product_id: order.product_id,
+      quantity: order.quantity,
+    },
+  ];
+}
+
+async function loadPurchaseOrderItemsWithoutRpc({
+  adminClient,
+  purchaseOrder,
+}: {
+  adminClient: ReturnType<typeof createAdminSupabaseClient>;
+  purchaseOrder: LegacyPurchaseOrderRow | null;
+}) {
+  if (!purchaseOrder) {
+    return [] as PurchaseOrderItemInput[];
+  }
+
+  const { data, error } = await adminClient
+    .from("purchase_order_items")
+    .select("*")
+    .eq("purchase_order_id", purchaseOrder.id);
+
+  if (error) {
+    if (isMissingPurchaseOrderItemsTableError(error)) {
+      return getLegacyItemsFromPurchaseOrder(purchaseOrder);
+    }
+
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as PurchaseOrderItemRow[]).map((item) => ({
+    product_id: item.product_id,
+    quantity: item.quantity,
+  }));
 }
 
 async function reconcilePurchaseOrderInventoryWithoutRpc({
@@ -287,6 +336,7 @@ async function insertPurchaseOrderRowWithoutRpc({
     status: payload.status,
     created_by: createdBy,
   };
+  const legacyValues = getLegacyPurchaseOrderValues(payload.items);
 
   const purchaseOrdersTable = adminClient.from("purchase_orders") as unknown as {
     insert: (
@@ -301,21 +351,20 @@ async function insertPurchaseOrderRowWithoutRpc({
   const insertOrder = async (values: Record<string, unknown>) =>
     purchaseOrdersTable.insert(values).select("*").single();
 
-  const initialInsert = await insertOrder(baseValues);
+  const initialInsert = await insertOrder({
+    ...baseValues,
+    ...legacyValues,
+  });
 
   if (!initialInsert.error) {
     return initialInsert.data as PurchaseOrderRow;
   }
 
-  if (!isLegacyPurchaseOrderConstraintError(initialInsert.error)) {
+  if (!isMissingPurchaseOrderColumnError(initialInsert.error)) {
     throw new Error(initialInsert.error.message);
   }
 
-  const legacyValues = getLegacyPurchaseOrderValues(payload.items);
-  const legacyInsert = await insertOrder({
-    ...baseValues,
-    ...legacyValues,
-  });
+  const legacyInsert = await insertOrder(baseValues);
 
   if (legacyInsert.error) {
     throw new Error(legacyInsert.error.message);
@@ -403,37 +452,26 @@ async function savePurchaseOrderWithoutRpc({
   let savedOrder: PurchaseOrderRow | null = null;
 
   if (purchaseOrderId) {
-    const [{ data: orderData, error: orderError }, { data: orderItemsData, error: orderItemsError }] =
-      await Promise.all([
-        adminClient
-          .from("purchase_orders")
-          .select("*")
-          .eq("id", purchaseOrderId)
-          .maybeSingle(),
-        adminClient
-          .from("purchase_order_items")
-          .select("*")
-          .eq("purchase_order_id", purchaseOrderId),
-      ]);
+    const { data: orderData, error: orderError } = await adminClient
+      .from("purchase_orders")
+      .select("*")
+      .eq("id", purchaseOrderId)
+      .maybeSingle();
 
     if (orderError) {
       throw new Error(orderError.message);
     }
 
-    if (orderItemsError) {
-      throw new Error(orderItemsError.message);
-    }
-
-    previousOrder = orderData as PurchaseOrderRow | null;
+    previousOrder = orderData as LegacyPurchaseOrderRow | null;
 
     if (!previousOrder) {
       throw new Error(`Purchase order ${purchaseOrderId} not found`);
     }
 
-    previousItems = ((orderItemsData ?? []) as PurchaseOrderItemRow[]).map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-    }));
+    previousItems = await loadPurchaseOrderItemsWithoutRpc({
+      adminClient,
+      purchaseOrder: previousOrder,
+    });
 
     await reconcilePurchaseOrderInventoryWithoutRpc({
       adminClient,
@@ -459,7 +497,7 @@ async function savePurchaseOrderWithoutRpc({
       .delete()
       .eq("purchase_order_id", savedOrder.id);
 
-    if (deleteItemsError) {
+    if (deleteItemsError && !isMissingPurchaseOrderItemsTableError(deleteItemsError)) {
       throw new Error(deleteItemsError.message);
     }
   } else {
@@ -484,7 +522,7 @@ async function savePurchaseOrderWithoutRpc({
       })),
     );
 
-  if (insertItemsError) {
+  if (insertItemsError && !isMissingPurchaseOrderItemsTableError(insertItemsError)) {
     throw new Error(insertItemsError.message);
   }
 
@@ -514,24 +552,22 @@ async function deletePurchaseOrderWithoutRpc({
 }) {
   const adminClient = createAdminSupabaseClient();
 
-  const [{ data: orderData }, { data: orderItemsData }] = await Promise.all([
-    adminClient
-      .from("purchase_orders")
-      .select("*")
-      .eq("id", purchaseOrderId)
-      .maybeSingle(),
-    adminClient
-      .from("purchase_order_items")
-      .select("*")
-      .eq("purchase_order_id", purchaseOrderId),
-  ]);
+  const { data: orderData } = await adminClient
+    .from("purchase_orders")
+    .select("*")
+    .eq("id", purchaseOrderId)
+    .maybeSingle();
 
-  const purchaseOrder = orderData as PurchaseOrderRow | null;
-  const orderItems = (orderItemsData ?? []) as PurchaseOrderItemRow[];
+  const purchaseOrder = orderData as LegacyPurchaseOrderRow | null;
 
   if (!purchaseOrder) {
     throw new Error(`Purchase order ${purchaseOrderId} not found`);
   }
+
+  const orderItems = await loadPurchaseOrderItemsWithoutRpc({
+    adminClient,
+    purchaseOrder,
+  });
 
   await reconcilePurchaseOrderInventoryWithoutRpc({
     adminClient,
@@ -540,10 +576,7 @@ async function deletePurchaseOrderWithoutRpc({
     newPoNumber: null,
     oldStatus: purchaseOrder.status,
     newStatus: "paid",
-    oldItems: orderItems.map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-    })),
+    oldItems: orderItems,
     newItems: [],
     performedBy,
   });
