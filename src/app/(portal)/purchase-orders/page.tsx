@@ -15,8 +15,16 @@ import { canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
 
-export default async function PurchaseOrdersPage() {
+type PurchaseOrdersPageProps = {
+  searchParams?: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrdersPageProps) {
   const { supabase, profile } = await requirePortalUser();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const errorMessage = resolvedSearchParams?.error;
   const [{ data: ordersData }, { data: productsData }, { data: orderItemsData }] = await Promise.all([
     supabase.from("purchase_orders").select("*").order("order_date", { ascending: false }),
     supabase.from("products").select("*").order("name"),
@@ -55,6 +63,12 @@ export default async function PurchaseOrdersPage() {
         description="Track supplier orders and move stock into inventory when goods arrive."
         title="Purchase Orders"
       />
+
+      {errorMessage ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {errorMessage}
+        </div>
+      ) : null}
 
       {isAdmin ? (
         <SectionCard
