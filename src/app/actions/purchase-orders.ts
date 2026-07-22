@@ -17,6 +17,19 @@ import {
   purchaseOrderStatusSchema,
 } from "@/lib/validators";
 
+type PurchaseOrderItemInput = {
+  product_id: string;
+  quantity: number;
+};
+
+type PurchaseOrderPayload = {
+  po_number: string;
+  supplier: string;
+  order_date: string;
+  status: PurchaseOrderRow["status"];
+  items: PurchaseOrderItemInput[];
+};
+
 function revalidatePurchaseOrderPaths() {
   revalidatePath("/");
   revalidatePath("/purchase-orders");
@@ -61,6 +74,13 @@ function getPurchaseOrderErrorMessage(error: unknown) {
       return "This purchase order cannot be reduced because some of the arrived stock has already been used. Please adjust stock first or create a new PO.";
     }
 
+    if (
+      error.message.includes("purchase_orders_po_number_key")
+      || error.message.includes("duplicate key value violates unique constraint")
+    ) {
+      return "This PO number already exists. Please use a different PO number.";
+    }
+
     if (error.message.includes("At least one purchase order item is required")) {
       return "A purchase order needs at least one product line.";
     }
@@ -96,13 +116,276 @@ function getErrorMessage(error: unknown) {
   return "";
 }
 
-function isMissingDeletePurchaseOrderFunction(error: unknown) {
+function isMissingRpcFunction(error: unknown, functionName: string) {
   const message = getErrorMessage(error);
 
   return Boolean(
-    message.includes("Could not find the function public.delete_purchase_order")
-    || message.includes("schema cache"),
+    message.includes(`Could not find the function public.${functionName}`)
+    || (message.includes("schema cache") && message.includes(functionName)),
   );
+}
+
+function buildArrivedItemsMap(status: PurchaseOrderRow["status"], items: PurchaseOrderItemInput[]) {
+  const quantities = new Map<string, number>();
+
+  if (status !== "arrived") {
+    return quantities;
+  }
+
+  for (const item of items) {
+    quantities.set(item.product_id, (quantities.get(item.product_id) ?? 0) + item.quantity);
+  }
+
+  return quantities;
+}
+
+async function reconcilePurchaseOrderInventoryWithoutRpc({
+  adminClient,
+  purchaseOrderId,
+  oldPoNumber,
+  newPoNumber,
+  oldStatus,
+  newStatus,
+  oldItems,
+  newItems,
+  performedBy,
+}: {
+  adminClient: ReturnType<typeof createAdminSupabaseClient>;
+  purchaseOrderId: string;
+  oldPoNumber: string | null;
+  newPoNumber: string | null;
+  oldStatus: PurchaseOrderRow["status"];
+  newStatus: PurchaseOrderRow["status"];
+  oldItems: PurchaseOrderItemInput[];
+  newItems: PurchaseOrderItemInput[];
+  performedBy: string;
+}) {
+  const oldQuantities = buildArrivedItemsMap(oldStatus, oldItems);
+  const newQuantities = buildArrivedItemsMap(newStatus, newItems);
+  const productIds = [...new Set([...oldQuantities.keys(), ...newQuantities.keys()])];
+
+  if (productIds.length === 0) {
+    return;
+  }
+
+  const deltas = productIds
+    .map((productId) => ({
+      productId,
+      delta: (newQuantities.get(productId) ?? 0) - (oldQuantities.get(productId) ?? 0),
+    }))
+    .filter(({ delta }) => delta !== 0);
+
+  if (deltas.length === 0) {
+    return;
+  }
+
+  const { data: productsData, error: productsError } = await adminClient
+    .from("products")
+    .select("*")
+    .in("id", deltas.map(({ productId }) => productId));
+
+  if (productsError) {
+    throw new Error(productsError.message);
+  }
+
+  const products = (productsData ?? []) as ProductRow[];
+  const productMap = new Map(products.map((product) => [product.id, product]));
+  const updatedAt = new Date().toISOString();
+
+  for (const { productId, delta } of deltas) {
+    const product = productMap.get(productId);
+
+    if (!product) {
+      throw new Error(`Product ${productId} not found`);
+    }
+
+    const nextCurrentStock = product.current_stock + delta;
+
+    if (nextCurrentStock < 0) {
+      throw new Error(`Current stock cannot become negative for product ${productId}`);
+    }
+
+    const { error: productUpdateError } = await adminClient
+      .from("products")
+      .update({
+        current_stock: nextCurrentStock,
+        updated_at: updatedAt,
+      })
+      .eq("id", productId);
+
+    if (productUpdateError) {
+      throw new Error(productUpdateError.message);
+    }
+  }
+
+  const transactionsToInsert = deltas.map(({ productId, delta }) => ({
+    product_id: productId,
+    quantity: delta,
+    type: (delta > 0 ? "purchase_order_arrived" : "purchase_order_reversed") as InventoryTransactionRow["type"],
+    reason:
+      delta > 0
+        ? `PO ${newPoNumber ?? oldPoNumber ?? purchaseOrderId} marked as arrived`
+        : `PO ${oldPoNumber ?? newPoNumber ?? purchaseOrderId} arrival reversed`,
+    reference_table: "purchase_orders",
+    reference_id: purchaseOrderId,
+    performed_by: performedBy,
+  }));
+
+  const { error: transactionInsertError } = await adminClient
+    .from("inventory_transactions")
+    .insert(transactionsToInsert);
+
+  if (transactionInsertError) {
+    throw new Error(transactionInsertError.message);
+  }
+}
+
+async function savePurchaseOrderWithoutRpc({
+  purchaseOrderId,
+  payload,
+  createdBy,
+  performedBy,
+}: {
+  purchaseOrderId?: string;
+  payload: PurchaseOrderPayload;
+  createdBy: string;
+  performedBy: string;
+}) {
+  const adminClient = createAdminSupabaseClient();
+  const updatedAt = new Date().toISOString();
+  const incomingItems = payload.items.map((item) => ({
+    product_id: item.product_id,
+    quantity: item.quantity,
+  }));
+  let previousOrder: PurchaseOrderRow | null = null;
+  let previousItems: PurchaseOrderItemInput[] = [];
+  let savedOrder: PurchaseOrderRow | null = null;
+
+  if (purchaseOrderId) {
+    const [{ data: orderData, error: orderError }, { data: orderItemsData, error: orderItemsError }] =
+      await Promise.all([
+        adminClient
+          .from("purchase_orders")
+          .select("*")
+          .eq("id", purchaseOrderId)
+          .maybeSingle(),
+        adminClient
+          .from("purchase_order_items")
+          .select("*")
+          .eq("purchase_order_id", purchaseOrderId),
+      ]);
+
+    if (orderError) {
+      throw new Error(orderError.message);
+    }
+
+    if (orderItemsError) {
+      throw new Error(orderItemsError.message);
+    }
+
+    previousOrder = orderData as PurchaseOrderRow | null;
+
+    if (!previousOrder) {
+      throw new Error(`Purchase order ${purchaseOrderId} not found`);
+    }
+
+    previousItems = ((orderItemsData ?? []) as PurchaseOrderItemRow[]).map((item) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+    }));
+
+    await reconcilePurchaseOrderInventoryWithoutRpc({
+      adminClient,
+      purchaseOrderId,
+      oldPoNumber: previousOrder.po_number,
+      newPoNumber: payload.po_number,
+      oldStatus: previousOrder.status,
+      newStatus: payload.status,
+      oldItems: previousItems,
+      newItems: incomingItems,
+      performedBy,
+    });
+
+    const { data: updatedOrder, error: updateOrderError } = await adminClient
+      .from("purchase_orders")
+      .update({
+        po_number: payload.po_number,
+        supplier: payload.supplier,
+        order_date: payload.order_date,
+        status: payload.status,
+        updated_at: updatedAt,
+      })
+      .eq("id", purchaseOrderId)
+      .select("*")
+      .single();
+
+    if (updateOrderError) {
+      throw new Error(updateOrderError.message);
+    }
+
+    savedOrder = updatedOrder as PurchaseOrderRow;
+
+    const { error: deleteItemsError } = await adminClient
+      .from("purchase_order_items")
+      .delete()
+      .eq("purchase_order_id", savedOrder.id);
+
+    if (deleteItemsError) {
+      throw new Error(deleteItemsError.message);
+    }
+  } else {
+    const { data: insertedOrder, error: insertOrderError } = await adminClient
+      .from("purchase_orders")
+      .insert({
+        po_number: payload.po_number,
+        supplier: payload.supplier,
+        order_date: payload.order_date,
+        status: payload.status,
+        created_by: createdBy,
+      })
+      .select("*")
+      .single();
+
+    if (insertOrderError) {
+      throw new Error(insertOrderError.message);
+    }
+
+    savedOrder = insertedOrder as PurchaseOrderRow;
+  }
+
+  if (!savedOrder) {
+    throw new Error("Purchase order could not be saved.");
+  }
+
+  const { error: insertItemsError } = await adminClient
+    .from("purchase_order_items")
+    .insert(
+      incomingItems.map((item) => ({
+        purchase_order_id: savedOrder!.id,
+        product_id: item.product_id,
+        quantity: item.quantity,
+      })),
+    );
+
+  if (insertItemsError) {
+    throw new Error(insertItemsError.message);
+  }
+
+  if (!purchaseOrderId) {
+    await reconcilePurchaseOrderInventoryWithoutRpc({
+      adminClient,
+      purchaseOrderId: savedOrder.id,
+      oldPoNumber: null,
+      newPoNumber: savedOrder.po_number,
+      oldStatus: "paid",
+      newStatus: savedOrder.status,
+      oldItems: [],
+      newItems: incomingItems,
+      performedBy,
+    });
+  }
+
+  return savedOrder;
 }
 
 async function deletePurchaseOrderWithoutRpc({
@@ -133,61 +416,20 @@ async function deletePurchaseOrderWithoutRpc({
     throw new Error(`Purchase order ${purchaseOrderId} not found`);
   }
 
-  if (purchaseOrder.status === "arrived" && orderItems.length > 0) {
-    const productIds = orderItems.map((item) => item.product_id);
-    const { data: productsData } = await adminClient
-      .from("products")
-      .select("*")
-      .in("id", productIds);
-
-    const products = (productsData ?? []) as ProductRow[];
-    const productMap = new Map(products.map((product) => [product.id, product]));
-    const updatedAt = new Date().toISOString();
-
-    for (const item of orderItems) {
-      const product = productMap.get(item.product_id);
-
-      if (!product) {
-        throw new Error(`Product ${item.product_id} not found`);
-      }
-
-      const nextCurrentStock = product.current_stock - item.quantity;
-
-      if (nextCurrentStock < 0) {
-        throw new Error(`Current stock cannot become negative for product ${item.product_id}`);
-      }
-
-      const { error: productUpdateError } = await adminClient
-        .from("products")
-        .update({
-          current_stock: nextCurrentStock,
-          updated_at: updatedAt,
-        })
-        .eq("id", product.id);
-
-      if (productUpdateError) {
-        throw new Error(productUpdateError.message);
-      }
-    }
-
-    const transactionsToInsert = orderItems.map((item) => ({
+  await reconcilePurchaseOrderInventoryWithoutRpc({
+    adminClient,
+    purchaseOrderId: purchaseOrder.id,
+    oldPoNumber: purchaseOrder.po_number,
+    newPoNumber: null,
+    oldStatus: purchaseOrder.status,
+    newStatus: "paid",
+    oldItems: orderItems.map((item) => ({
       product_id: item.product_id,
-      quantity: -item.quantity,
-      type: "purchase_order_reversed" as InventoryTransactionRow["type"],
-      reason: `PO ${purchaseOrder.po_number} arrival reversed`,
-      reference_table: "purchase_orders",
-      reference_id: purchaseOrder.id,
-      performed_by: performedBy,
-    }));
-
-    const { error: transactionInsertError } = await adminClient
-      .from("inventory_transactions")
-      .insert(transactionsToInsert);
-
-    if (transactionInsertError) {
-      throw new Error(transactionInsertError.message);
-    }
-  }
+      quantity: item.quantity,
+    })),
+    newItems: [],
+    performedBy,
+  });
 
   const { error: deleteError } = await adminClient
     .from("purchase_orders")
@@ -212,17 +454,35 @@ export async function createPurchaseOrderAction(formData: FormData) {
       items: extractPurchaseOrderItems(formData),
     });
 
-    const { error } = await runRpc("save_purchase_order", {
-      p_po_number: parsed.po_number,
-      p_supplier: parsed.supplier,
-      p_order_date: parsed.order_date,
-      p_status: parsed.status,
-      p_items: parsed.items,
-      p_created_by: profile.id,
-    });
+    try {
+      const { error } = await runRpc("save_purchase_order", {
+        p_po_number: parsed.po_number,
+        p_supplier: parsed.supplier,
+        p_order_date: parsed.order_date,
+        p_status: parsed.status,
+        p_items: parsed.items,
+        p_created_by: profile.id,
+      });
 
-    if (error) {
-      throw new Error(error.message);
+      if (isMissingRpcFunction(error, "save_purchase_order")) {
+        await savePurchaseOrderWithoutRpc({
+          payload: parsed,
+          createdBy: profile.id,
+          performedBy: profile.id,
+        });
+      } else if (error) {
+        throw new Error(error.message);
+      }
+    } catch (error) {
+      if (isMissingRpcFunction(error, "save_purchase_order")) {
+        await savePurchaseOrderWithoutRpc({
+          payload: parsed,
+          createdBy: profile.id,
+          performedBy: profile.id,
+        });
+      } else {
+        throw error;
+      }
     }
 
     revalidatePurchaseOrderPaths();
@@ -232,7 +492,7 @@ export async function createPurchaseOrderAction(formData: FormData) {
 }
 
 export async function updatePurchaseOrderAction(formData: FormData) {
-  const { supabase } = await requirePortalUser("admin");
+  const { supabase, profile } = await requirePortalUser("admin");
   const runRpc = rpcMutation(supabase);
 
   try {
@@ -245,17 +505,37 @@ export async function updatePurchaseOrderAction(formData: FormData) {
       items: extractPurchaseOrderItems(formData),
     });
 
-    const { error } = await runRpc("save_purchase_order", {
-      p_purchase_order_id: id,
-      p_po_number: parsed.po_number,
-      p_supplier: parsed.supplier,
-      p_order_date: parsed.order_date,
-      p_status: parsed.status,
-      p_items: parsed.items,
-    });
+    try {
+      const { error } = await runRpc("save_purchase_order", {
+        p_purchase_order_id: id,
+        p_po_number: parsed.po_number,
+        p_supplier: parsed.supplier,
+        p_order_date: parsed.order_date,
+        p_status: parsed.status,
+        p_items: parsed.items,
+      });
 
-    if (error) {
-      throw new Error(error.message);
+      if (isMissingRpcFunction(error, "save_purchase_order")) {
+        await savePurchaseOrderWithoutRpc({
+          purchaseOrderId: id,
+          payload: parsed,
+          createdBy: profile.id,
+          performedBy: profile.id,
+        });
+      } else if (error) {
+        throw new Error(error.message);
+      }
+    } catch (error) {
+      if (isMissingRpcFunction(error, "save_purchase_order")) {
+        await savePurchaseOrderWithoutRpc({
+          purchaseOrderId: id,
+          payload: parsed,
+          createdBy: profile.id,
+          performedBy: profile.id,
+        });
+      } else {
+        throw error;
+      }
     }
 
     revalidatePurchaseOrderPaths();
@@ -304,7 +584,7 @@ export async function deletePurchaseOrderAction(formData: FormData) {
 
       rpcError = result.error;
     } catch (error) {
-      if (isMissingDeletePurchaseOrderFunction(error)) {
+      if (isMissingRpcFunction(error, "delete_purchase_order")) {
         await deletePurchaseOrderWithoutRpc({
           purchaseOrderId: id,
           performedBy: profile.id,
@@ -316,7 +596,7 @@ export async function deletePurchaseOrderAction(formData: FormData) {
       throw error;
     }
 
-    if (isMissingDeletePurchaseOrderFunction(rpcError)) {
+    if (isMissingRpcFunction(rpcError, "delete_purchase_order")) {
       await deletePurchaseOrderWithoutRpc({
         purchaseOrderId: id,
         performedBy: profile.id,
