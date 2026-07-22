@@ -21,17 +21,56 @@ type PurchaseOrdersPageProps = {
   }>;
 };
 
+type LegacyPurchaseOrderRow = PurchaseOrderRow & {
+  product_id?: string | null;
+  quantity?: number | null;
+};
+
+type PurchaseOrderDisplayItem = {
+  id: string;
+  purchase_order_id: string;
+  product_id: string;
+  quantity: number;
+};
+
+function isMissingPurchaseOrderItemsTableError(message: string | undefined) {
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes("Could not find the table 'public.purchase_order_items' in the schema cache")
+    || message.includes('relation "public.purchase_order_items" does not exist')
+    || message.includes('relation "purchase_order_items" does not exist')
+  );
+}
+
+function buildLegacyOrderItems(purchaseOrder: LegacyPurchaseOrderRow): PurchaseOrderDisplayItem[] {
+  if (!purchaseOrder.product_id || typeof purchaseOrder.quantity !== "number" || purchaseOrder.quantity <= 0) {
+    return [];
+  }
+
+  return [
+    {
+      id: `legacy-${purchaseOrder.id}`,
+      purchase_order_id: purchaseOrder.id,
+      product_id: purchaseOrder.product_id,
+      quantity: purchaseOrder.quantity,
+    },
+  ];
+}
+
 export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrdersPageProps) {
   const { supabase, profile } = await requirePortalUser();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const errorMessage = resolvedSearchParams?.error;
-  const [{ data: ordersData }, { data: productsData }, { data: orderItemsData }] = await Promise.all([
+  const [{ data: ordersData }, { data: productsData }, { data: orderItemsData, error: orderItemsError }] = await Promise.all([
     supabase.from("purchase_orders").select("*").order("order_date", { ascending: false }),
     supabase.from("products").select("*").order("name"),
     supabase.from("purchase_order_items").select("*"),
   ]);
 
-  const purchaseOrders = (ordersData ?? []) as PurchaseOrderRow[];
+  const purchaseOrders = (ordersData ?? []) as LegacyPurchaseOrderRow[];
   const products = (productsData ?? []) as ProductRow[];
   const orderItems = (orderItemsData ?? []) as PurchaseOrderItemRow[];
   const productMap = new Map(products.map((product) => [product.id, product]));
@@ -40,17 +79,29 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
     name: product.name,
     sku: product.sku,
   }));
-  const orderItemsMap = new Map<string, PurchaseOrderItemRow[]>();
+  const orderItemsMap = new Map<string, PurchaseOrderDisplayItem[]>();
   const totalQuantityByOrder = new Map<string, number>();
+  const useLegacyItems = isMissingPurchaseOrderItemsTableError(orderItemsError?.message);
 
-  for (const item of orderItems) {
-    const existingItems = orderItemsMap.get(item.purchase_order_id) ?? [];
-    existingItems.push(item);
-    orderItemsMap.set(item.purchase_order_id, existingItems);
-    totalQuantityByOrder.set(
-      item.purchase_order_id,
-      (totalQuantityByOrder.get(item.purchase_order_id) ?? 0) + item.quantity,
-    );
+  if (useLegacyItems) {
+    for (const purchaseOrder of purchaseOrders) {
+      const items = buildLegacyOrderItems(purchaseOrder);
+      orderItemsMap.set(purchaseOrder.id, items);
+      totalQuantityByOrder.set(
+        purchaseOrder.id,
+        items.reduce((sum, item) => sum + item.quantity, 0),
+      );
+    }
+  } else {
+    for (const item of orderItems) {
+      const existingItems = orderItemsMap.get(item.purchase_order_id) ?? [];
+      existingItems.push(item);
+      orderItemsMap.set(item.purchase_order_id, existingItems);
+      totalQuantityByOrder.set(
+        item.purchase_order_id,
+        (totalQuantityByOrder.get(item.purchase_order_id) ?? 0) + item.quantity,
+      );
+    }
   }
 
   const isAdmin = canManageOrders(profile.role);
@@ -170,18 +221,24 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
 
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Products</p>
-                  {items.map((item) => {
-                    const product = productMap.get(item.product_id);
+                  {items.length > 0 ? (
+                    items.map((item) => {
+                      const product = productMap.get(item.product_id);
 
-                    return (
-                      <div className="rounded-2xl bg-slate-50 px-3 py-3" key={item.id}>
-                        <p className="font-medium text-slate-900">{product?.name ?? "Unknown product"}</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {product?.sku ?? "No SKU"} • Qty {item.quantity}
-                        </p>
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div className="rounded-2xl bg-slate-50 px-3 py-3" key={item.id}>
+                          <p className="font-medium text-slate-900">{product?.name ?? "Unknown product"}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {product?.sku ?? "No SKU"} • Qty {item.quantity}
+                          </p>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                      No product lines saved yet.
+                    </p>
+                  )}
                 </div>
 
                 {canUpdateStatus ? (
@@ -410,20 +467,24 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     </td>
                     <td className="py-4 text-slate-600">
                       <div className="space-y-2">
-                        {items.map((item) => {
-                          const product = productMap.get(item.product_id);
+                        {items.length > 0 ? (
+                          items.map((item) => {
+                            const product = productMap.get(item.product_id);
 
-                          return (
-                            <div className="rounded-xl bg-slate-50 px-3 py-2" key={item.id}>
-                              <p className="font-medium text-slate-900">
-                                {product?.name ?? "Unknown product"}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                {product?.sku ?? "No SKU"} • Qty {item.quantity}
-                              </p>
-                            </div>
-                          );
-                        })}
+                            return (
+                              <div className="rounded-xl bg-slate-50 px-3 py-2" key={item.id}>
+                                <p className="font-medium text-slate-900">
+                                  {product?.name ?? "Unknown product"}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {product?.sku ?? "No SKU"} • Qty {item.quantity}
+                                </p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-sm text-slate-500">No product lines saved yet.</p>
+                        )}
                       </div>
                     </td>
                     <td className="py-4 text-slate-950">
