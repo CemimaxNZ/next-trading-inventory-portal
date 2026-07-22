@@ -125,6 +125,24 @@ function isMissingRpcFunction(error: unknown, functionName: string) {
   );
 }
 
+function isLegacyPurchaseOrderConstraintError(error: unknown) {
+  const message = getErrorMessage(error);
+
+  return Boolean(
+    message.includes('null value in column "product_id" of relation "purchase_orders"')
+    || message.includes('null value in column "quantity" of relation "purchase_orders"'),
+  );
+}
+
+function isMissingPurchaseOrderColumnError(error: unknown) {
+  const message = getErrorMessage(error);
+
+  return Boolean(
+    message.includes('column "product_id" of relation "purchase_orders" does not exist')
+    || message.includes('column "quantity" of relation "purchase_orders" does not exist'),
+  );
+}
+
 function buildArrivedItemsMap(status: PurchaseOrderRow["status"], items: PurchaseOrderItemInput[]) {
   const quantities = new Map<string, number>();
 
@@ -137,6 +155,19 @@ function buildArrivedItemsMap(status: PurchaseOrderRow["status"], items: Purchas
   }
 
   return quantities;
+}
+
+function getLegacyPurchaseOrderValues(items: PurchaseOrderItemInput[]) {
+  const firstItem = items[0];
+
+  if (!firstItem) {
+    throw new Error("At least one purchase order item is required");
+  }
+
+  return {
+    product_id: firstItem.product_id,
+    quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+  };
 }
 
 async function reconcilePurchaseOrderInventoryWithoutRpc({
@@ -240,6 +271,116 @@ async function reconcilePurchaseOrderInventoryWithoutRpc({
   }
 }
 
+async function insertPurchaseOrderRowWithoutRpc({
+  adminClient,
+  payload,
+  createdBy,
+}: {
+  adminClient: ReturnType<typeof createAdminSupabaseClient>;
+  payload: PurchaseOrderPayload;
+  createdBy: string;
+}) {
+  const baseValues = {
+    po_number: payload.po_number,
+    supplier: payload.supplier,
+    order_date: payload.order_date,
+    status: payload.status,
+    created_by: createdBy,
+  };
+
+  const purchaseOrdersTable = adminClient.from("purchase_orders") as unknown as {
+    insert: (
+      values: Record<string, unknown>,
+    ) => {
+      select: (columns: string) => {
+        single: () => Promise<{ data: unknown; error: { message: string } | null }>;
+      };
+    };
+  };
+
+  const insertOrder = async (values: Record<string, unknown>) =>
+    purchaseOrdersTable.insert(values).select("*").single();
+
+  const initialInsert = await insertOrder(baseValues);
+
+  if (!initialInsert.error) {
+    return initialInsert.data as PurchaseOrderRow;
+  }
+
+  if (!isLegacyPurchaseOrderConstraintError(initialInsert.error)) {
+    throw new Error(initialInsert.error.message);
+  }
+
+  const legacyValues = getLegacyPurchaseOrderValues(payload.items);
+  const legacyInsert = await insertOrder({
+    ...baseValues,
+    ...legacyValues,
+  });
+
+  if (legacyInsert.error) {
+    throw new Error(legacyInsert.error.message);
+  }
+
+  return legacyInsert.data as PurchaseOrderRow;
+}
+
+async function updatePurchaseOrderRowWithoutRpc({
+  adminClient,
+  purchaseOrderId,
+  payload,
+  updatedAt,
+}: {
+  adminClient: ReturnType<typeof createAdminSupabaseClient>;
+  purchaseOrderId: string;
+  payload: PurchaseOrderPayload;
+  updatedAt: string;
+}) {
+  const baseValues = {
+    po_number: payload.po_number,
+    supplier: payload.supplier,
+    order_date: payload.order_date,
+    status: payload.status,
+    updated_at: updatedAt,
+  };
+
+  const purchaseOrdersTable = adminClient.from("purchase_orders") as unknown as {
+    update: (
+      values: Record<string, unknown>,
+    ) => {
+      eq: (column: string, value: string) => {
+        select: (columns: string) => {
+          single: () => Promise<{ data: unknown; error: { message: string } | null }>;
+        };
+      };
+    };
+  };
+
+  const updateOrder = async (values: Record<string, unknown>) =>
+    purchaseOrdersTable.update(values).eq("id", purchaseOrderId).select("*").single();
+
+  const legacyValues = getLegacyPurchaseOrderValues(payload.items);
+  const legacyUpdate = await updateOrder({
+    ...baseValues,
+    ...legacyValues,
+  });
+
+  if (!legacyUpdate.error) {
+    return legacyUpdate.data as PurchaseOrderRow;
+  }
+
+  if (!isMissingPurchaseOrderColumnError(legacyUpdate.error)) {
+    throw new Error(legacyUpdate.error.message);
+  }
+
+  const fallbackUpdate = await updateOrder(baseValues);
+
+  if (fallbackUpdate.error) {
+    throw new Error(fallbackUpdate.error.message);
+  }
+
+  return fallbackUpdate.data as PurchaseOrderRow;
+}
+
 async function savePurchaseOrderWithoutRpc({
   purchaseOrderId,
   payload,
@@ -306,24 +447,12 @@ async function savePurchaseOrderWithoutRpc({
       performedBy,
     });
 
-    const { data: updatedOrder, error: updateOrderError } = await adminClient
-      .from("purchase_orders")
-      .update({
-        po_number: payload.po_number,
-        supplier: payload.supplier,
-        order_date: payload.order_date,
-        status: payload.status,
-        updated_at: updatedAt,
-      })
-      .eq("id", purchaseOrderId)
-      .select("*")
-      .single();
-
-    if (updateOrderError) {
-      throw new Error(updateOrderError.message);
-    }
-
-    savedOrder = updatedOrder as PurchaseOrderRow;
+    savedOrder = await updatePurchaseOrderRowWithoutRpc({
+      adminClient,
+      purchaseOrderId,
+      payload,
+      updatedAt,
+    });
 
     const { error: deleteItemsError } = await adminClient
       .from("purchase_order_items")
@@ -334,23 +463,11 @@ async function savePurchaseOrderWithoutRpc({
       throw new Error(deleteItemsError.message);
     }
   } else {
-    const { data: insertedOrder, error: insertOrderError } = await adminClient
-      .from("purchase_orders")
-      .insert({
-        po_number: payload.po_number,
-        supplier: payload.supplier,
-        order_date: payload.order_date,
-        status: payload.status,
-        created_by: createdBy,
-      })
-      .select("*")
-      .single();
-
-    if (insertOrderError) {
-      throw new Error(insertOrderError.message);
-    }
-
-    savedOrder = insertedOrder as PurchaseOrderRow;
+    savedOrder = await insertPurchaseOrderRowWithoutRpc({
+      adminClient,
+      payload,
+      createdBy,
+    });
   }
 
   if (!savedOrder) {
