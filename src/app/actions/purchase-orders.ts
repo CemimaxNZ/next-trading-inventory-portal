@@ -84,10 +84,24 @@ function redirectToPurchaseOrdersError(error: unknown) {
   redirect(`/purchase-orders?error=${encodeURIComponent(message)}`);
 }
 
-function isMissingDeletePurchaseOrderFunction(error: { message: string } | null) {
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+
+  return "";
+}
+
+function isMissingDeletePurchaseOrderFunction(error: unknown) {
+  const message = getErrorMessage(error);
+
   return Boolean(
-    error?.message.includes("Could not find the function public.delete_purchase_order")
-    || error?.message.includes("schema cache"),
+    message.includes("Could not find the function public.delete_purchase_order")
+    || message.includes("schema cache"),
   );
 }
 
@@ -281,17 +295,34 @@ export async function deletePurchaseOrderAction(formData: FormData) {
 
   try {
     const id = String(formData.get("id") ?? "");
-    const { error } = await runRpc("delete_purchase_order", {
-      p_purchase_order_id: id,
-    });
+    let rpcError: { message: string } | null = null;
 
-    if (isMissingDeletePurchaseOrderFunction(error)) {
+    try {
+      const result = await runRpc("delete_purchase_order", {
+        p_purchase_order_id: id,
+      });
+
+      rpcError = result.error;
+    } catch (error) {
+      if (isMissingDeletePurchaseOrderFunction(error)) {
+        await deletePurchaseOrderWithoutRpc({
+          purchaseOrderId: id,
+          performedBy: profile.id,
+        });
+        revalidatePurchaseOrderPaths();
+        return;
+      }
+
+      throw error;
+    }
+
+    if (isMissingDeletePurchaseOrderFunction(rpcError)) {
       await deletePurchaseOrderWithoutRpc({
         purchaseOrderId: id,
         performedBy: profile.id,
       });
-    } else if (error) {
-      throw new Error(error.message);
+    } else if (rpcError) {
+      throw new Error(rpcError.message);
     }
 
     revalidatePurchaseOrderPaths();
