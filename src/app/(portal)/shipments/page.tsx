@@ -4,8 +4,8 @@ import {
   updateShipmentAction,
   updateShipmentStatusAction,
 } from "@/app/actions/shipments";
-import { ShipmentPurchaseOrderPicker } from "@/components/shipments/shipment-purchase-order-picker";
 import { SubmitButton } from "@/components/forms/submit-button";
+import { ShipmentPurchaseOrderPicker } from "@/components/forms/shipment-purchase-order-picker";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
