@@ -52,26 +52,14 @@ export const purchaseOrderStatusSchema = z.object({
 
 export const shipmentSchema = z.object({
   container_number: z.string().trim().min(3),
-  product_id: z.preprocess(
-    (value) => {
-      const normalized = String(value ?? "").trim();
-      return normalized || undefined;
-    },
-    z.string().uuid().optional(),
-  ),
-  quantity: z.preprocess(
-    (value) => {
-      if (value === undefined || value === null || String(value).trim() === "") {
-        return undefined;
-      }
-
-      return value;
-    },
-    z.coerce.number().int().positive().optional(),
-  ),
+  etd: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .or(z.literal("")),
   eta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   arrival_status: z.enum(shipmentStatuses),
-  linked_purchase_order_id: z.string().uuid().optional().or(z.literal("")),
+  linked_purchase_order_ids: z.array(z.string().uuid()).default([]),
 });
 
 export const shipmentStatusSchema = z.object({
