@@ -24,9 +24,9 @@ export const purchaseOrderStatuses = [
 ] as const satisfies readonly Database["public"]["Enums"]["purchase_order_status"][];
 
 export const shipmentStatuses = [
+  "scheduled",
   "at_sea",
   "arrived",
-  "completed",
 ] as const satisfies readonly Database["public"]["Enums"]["shipment_status"][];
 
 export const appRoles = ["admin", "operator", "viewer"] as const satisfies readonly AppRole[];
