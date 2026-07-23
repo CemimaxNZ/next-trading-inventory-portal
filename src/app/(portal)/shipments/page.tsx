@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { shipmentStatuses } from "@/lib/constants";
-import type { ProductRow, PurchaseOrderRow, ShipmentRow } from "@/lib/database.types";
+import type { PurchaseOrderRow, ShipmentRow } from "@/lib/database.types";
 import { canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatEnumLabel } from "@/lib/utils";
@@ -18,18 +18,35 @@ function getVisibleShipmentStatus(status: ShipmentRow["arrival_status"]) {
   return status === "completed" ? "arrived" : status;
 }
 
+function getShipmentOrderIds(shipment: ShipmentRow) {
+  if (shipment.linked_purchase_order_ids.length > 0) {
+    return shipment.linked_purchase_order_ids;
+  }
+
+  return shipment.linked_purchase_order_id ? [shipment.linked_purchase_order_id] : [];
+}
+
+function formatShipmentLinkedPos(shipment: ShipmentRow, orderMap: Map<string, PurchaseOrderRow>) {
+  const linkedOrderIds = getShipmentOrderIds(shipment);
+
+  if (linkedOrderIds.length === 0) {
+    return "None";
+  }
+
+  return linkedOrderIds
+    .map((orderId) => orderMap.get(orderId)?.po_number ?? "Unknown PO")
+    .join(", ");
+}
+
 export default async function ShipmentsPage() {
   const { supabase, profile } = await requirePortalUser();
-  const [{ data: shipmentsData }, { data: productsData }, { data: ordersData }] = await Promise.all([
+  const [{ data: shipmentsData }, { data: ordersData }] = await Promise.all([
     supabase.from("shipments").select("*").order("eta"),
-    supabase.from("products").select("*").order("name"),
     supabase.from("purchase_orders").select("*").order("po_number"),
   ]);
 
   const shipments = (shipmentsData ?? []) as ShipmentRow[];
-  const products = (productsData ?? []) as ProductRow[];
   const orders = (ordersData ?? []) as PurchaseOrderRow[];
-  const productMap = new Map(products.map((product) => [product.id, product]));
   const orderMap = new Map(orders.map((order) => [order.id, order]));
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
@@ -44,7 +61,7 @@ export default async function ShipmentsPage() {
 
       {isAdmin ? (
         <SectionCard
-          description="Track a container by its ETA, status, and optional purchase order."
+          description="Track a container by its ETD, ETA, status, and one or more linked purchase orders."
           title="Create Shipment"
         >
           <form action={createShipmentAction} className="grid gap-4 md:grid-cols-2">
@@ -53,6 +70,12 @@ export default async function ShipmentsPage() {
                 Container Number
               </label>
               <input className="input-field" id="container_number" name="container_number" required type="text" />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="etd">
+                ETD
+              </label>
+              <input className="input-field" defaultValue={today} id="etd" name="etd" type="date" />
             </div>
             <div>
               <label className="field-label" htmlFor="eta">
@@ -73,17 +96,17 @@ export default async function ShipmentsPage() {
               </select>
             </div>
             <div>
-              <label className="field-label" htmlFor="linked_purchase_order_id">
-                Linked Purchase Order
+              <label className="field-label" htmlFor="linked_purchase_order_ids">
+                Linked Purchase Orders
               </label>
-              <select className="input-field" id="linked_purchase_order_id" name="linked_purchase_order_id">
-                <option value="">Optional</option>
+              <select className="input-field min-h-40" id="linked_purchase_order_ids" multiple name="linked_purchase_order_ids">
                 {orders.map((order) => (
                   <option key={order.id} value={order.id}>
                     {order.po_number}
                   </option>
                 ))}
               </select>
+              <p className="mt-2 text-xs text-slate-500">Hold Command or Control to select multiple POs.</p>
             </div>
             <div className="md:col-span-2">
               <SubmitButton className="btn-primary" pendingLabel="Creating...">
@@ -117,26 +140,16 @@ export default async function ShipmentsPage() {
 
               <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Product</p>
-                  <p className="mt-1 text-slate-700">
-                    {shipment.product_id ? productMap.get(shipment.product_id)?.name ?? "Unknown product" : "Not specified"}
-                  </p>
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETD</p>
+                  <p className="mt-1 text-slate-700">{shipment.etd ? formatDate(shipment.etd) : "Not specified"}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Quantity</p>
-                  <p className="mt-1 font-semibold text-slate-950">{shipment.quantity ?? "Not specified"}</p>
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Linked PO</p>
+                  <p className="mt-1 text-slate-700">{formatShipmentLinkedPos(shipment, orderMap)}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETA</p>
                   <p className="mt-1 text-slate-700">{formatDate(shipment.eta)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Linked PO</p>
-                  <p className="mt-1 text-slate-700">
-                    {shipment.linked_purchase_order_id
-                      ? orderMap.get(shipment.linked_purchase_order_id)?.po_number ?? "Unknown PO"
-                      : "None"}
-                  </p>
                 </div>
               </div>
 
@@ -178,34 +191,15 @@ export default async function ShipmentsPage() {
                         />
                       </div>
                       <div>
-                        <label className="field-label" htmlFor={`product-mobile-${shipment.id}`}>
-                          Product
-                        </label>
-                        <select
-                          className="input-field"
-                          defaultValue={shipment.product_id ?? ""}
-                          id={`product-mobile-${shipment.id}`}
-                          name="product_id"
-                        >
-                          <option value="">Not specified</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name} ({product.sku})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="field-label" htmlFor={`quantity-mobile-${shipment.id}`}>
-                          Quantity
+                        <label className="field-label" htmlFor={`etd-mobile-${shipment.id}`}>
+                          ETD
                         </label>
                         <input
                           className="input-field"
-                          defaultValue={shipment.quantity ?? ""}
-                          id={`quantity-mobile-${shipment.id}`}
-                          min="1"
-                          name="quantity"
-                          type="number"
+                          defaultValue={shipment.etd ?? ""}
+                          id={`etd-mobile-${shipment.id}`}
+                          name="etd"
+                          type="date"
                         />
                       </div>
                       <div>
@@ -239,16 +233,16 @@ export default async function ShipmentsPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="field-label" htmlFor={`linked-po-mobile-${shipment.id}`}>
-                          Linked Purchase Order
+                        <label className="field-label" htmlFor={`linked-pos-mobile-${shipment.id}`}>
+                          Linked Purchase Orders
                         </label>
                         <select
-                          className="input-field"
-                          defaultValue={shipment.linked_purchase_order_id ?? ""}
-                          id={`linked-po-mobile-${shipment.id}`}
-                          name="linked_purchase_order_id"
+                          className="input-field min-h-40"
+                          defaultValue={getShipmentOrderIds(shipment)}
+                          id={`linked-pos-mobile-${shipment.id}`}
+                          multiple
+                          name="linked_purchase_order_ids"
                         >
-                          <option value="">Optional</option>
                           {orders.map((order) => (
                             <option key={order.id} value={order.id}>
                               {order.po_number}
@@ -282,8 +276,7 @@ export default async function ShipmentsPage() {
             <thead className="border-b border-slate-200 text-slate-500">
               <tr>
                 <th className="pb-3 font-medium">Container</th>
-                <th className="pb-3 font-medium">Product</th>
-                <th className="pb-3 font-medium">Quantity</th>
+                <th className="pb-3 font-medium">ETD</th>
                 <th className="pb-3 font-medium">ETA</th>
                 <th className="pb-3 font-medium">Linked PO</th>
                 <th className="pb-3 font-medium">Status</th>
@@ -319,34 +312,15 @@ export default async function ShipmentsPage() {
                               />
                             </div>
                             <div>
-                              <label className="field-label" htmlFor={`product-${shipment.id}`}>
-                                Product
-                              </label>
-                              <select
-                                className="input-field"
-                                defaultValue={shipment.product_id ?? ""}
-                                id={`product-${shipment.id}`}
-                                name="product_id"
-                              >
-                                <option value="">Not specified</option>
-                                {products.map((product) => (
-                                  <option key={product.id} value={product.id}>
-                                    {product.name} ({product.sku})
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="field-label" htmlFor={`quantity-${shipment.id}`}>
-                                Quantity
+                              <label className="field-label" htmlFor={`etd-${shipment.id}`}>
+                                ETD
                               </label>
                               <input
                                 className="input-field"
-                                defaultValue={shipment.quantity ?? ""}
-                                id={`quantity-${shipment.id}`}
-                                min="1"
-                                name="quantity"
-                                type="number"
+                                defaultValue={shipment.etd ?? ""}
+                                id={`etd-${shipment.id}`}
+                                name="etd"
+                                type="date"
                               />
                             </div>
                             <div>
@@ -379,17 +353,17 @@ export default async function ShipmentsPage() {
                                 ))}
                               </select>
                             </div>
-                            <div>
-                              <label className="field-label" htmlFor={`linked-po-${shipment.id}`}>
-                                Linked Purchase Order
+                            <div className="md:col-span-3">
+                              <label className="field-label" htmlFor={`linked-pos-${shipment.id}`}>
+                                Linked Purchase Orders
                               </label>
                               <select
-                                className="input-field"
-                                defaultValue={shipment.linked_purchase_order_id ?? ""}
-                                id={`linked-po-${shipment.id}`}
-                                name="linked_purchase_order_id"
+                                className="input-field min-h-40"
+                                defaultValue={getShipmentOrderIds(shipment)}
+                                id={`linked-pos-${shipment.id}`}
+                                multiple
+                                name="linked_purchase_order_ids"
                               >
-                                <option value="">Optional</option>
                                 {orders.map((order) => (
                                   <option key={order.id} value={order.id}>
                                     {order.po_number}
@@ -414,16 +388,9 @@ export default async function ShipmentsPage() {
                       </details>
                     ) : null}
                   </td>
-                  <td className="py-4 text-slate-600">
-                    {shipment.product_id ? productMap.get(shipment.product_id)?.name ?? "Unknown product" : "Not specified"}
-                  </td>
-                  <td className="py-4 text-slate-950">{shipment.quantity ?? "Not specified"}</td>
+                  <td className="py-4 text-slate-600">{shipment.etd ? formatDate(shipment.etd) : "Not specified"}</td>
                   <td className="py-4 text-slate-600">{formatDate(shipment.eta)}</td>
-                  <td className="py-4 text-slate-600">
-                    {shipment.linked_purchase_order_id
-                      ? orderMap.get(shipment.linked_purchase_order_id)?.po_number ?? "Unknown PO"
-                      : "None"}
-                  </td>
+                  <td className="py-4 text-slate-600">{formatShipmentLinkedPos(shipment, orderMap)}</td>
                   <td className="py-4">
                     <div className="space-y-3">
                       <StatusBadge value={shipmentStatus} />
