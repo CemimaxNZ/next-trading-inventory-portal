@@ -4,6 +4,7 @@ import {
   updateShipmentAction,
   updateShipmentStatusAction,
 } from "@/app/actions/shipments";
+import { ShipmentPurchaseOrderPicker } from "@/components/shipments/shipment-purchase-order-picker";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
@@ -26,16 +27,25 @@ function getShipmentOrderIds(shipment: ShipmentRow) {
   return shipment.linked_purchase_order_id ? [shipment.linked_purchase_order_id] : [];
 }
 
-function formatShipmentLinkedPos(shipment: ShipmentRow, orderMap: Map<string, PurchaseOrderRow>) {
+function getShipmentLinkedPoDisplay(shipment: ShipmentRow, orderMap: Map<string, PurchaseOrderRow>) {
   const linkedOrderIds = getShipmentOrderIds(shipment);
 
   if (linkedOrderIds.length === 0) {
-    return "None";
+    return <span className="text-slate-500">None</span>;
   }
 
-  return linkedOrderIds
-    .map((orderId) => orderMap.get(orderId)?.po_number ?? "Unknown PO")
-    .join(", ");
+  return (
+    <div className="flex flex-wrap gap-2">
+      {linkedOrderIds.map((orderId) => (
+        <span
+          className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-slate-700"
+          key={orderId}
+        >
+          {orderMap.get(orderId)?.po_number ?? "Unknown PO"}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default async function ShipmentsPage() {
@@ -48,6 +58,11 @@ export default async function ShipmentsPage() {
   const shipments = (shipmentsData ?? []) as ShipmentRow[];
   const orders = (ordersData ?? []) as PurchaseOrderRow[];
   const orderMap = new Map(orders.map((order) => [order.id, order]));
+  const orderOptions = orders.map((order) => ({
+    id: order.id,
+    po_number: order.po_number,
+    supplier: order.supplier,
+  }));
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
   const today = new Date().toISOString().slice(0, 10);
@@ -96,17 +111,13 @@ export default async function ShipmentsPage() {
               </select>
             </div>
             <div>
-              <label className="field-label" htmlFor="linked_purchase_order_ids">
-                Linked Purchase Orders
-              </label>
-              <select className="input-field min-h-40" id="linked_purchase_order_ids" multiple name="linked_purchase_order_ids">
-                {orders.map((order) => (
-                  <option key={order.id} value={order.id}>
-                    {order.po_number}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-2 text-xs text-slate-500">Hold Command or Control to select multiple POs.</p>
+              <ShipmentPurchaseOrderPicker
+                helperText="Search and add multiple purchase orders for the same shipment."
+                inputName="linked_purchase_order_ids"
+                inputPrefix="shipment-create"
+                label="Linked Purchase Orders"
+                orders={orderOptions}
+              />
             </div>
             <div className="md:col-span-2">
               <SubmitButton className="btn-primary" pendingLabel="Creating...">
@@ -145,7 +156,7 @@ export default async function ShipmentsPage() {
                 </div>
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Linked PO</p>
-                  <p className="mt-1 text-slate-700">{formatShipmentLinkedPos(shipment, orderMap)}</p>
+                  <div className="mt-1">{getShipmentLinkedPoDisplay(shipment, orderMap)}</div>
                 </div>
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETA</p>
@@ -233,22 +244,14 @@ export default async function ShipmentsPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="field-label" htmlFor={`linked-pos-mobile-${shipment.id}`}>
-                          Linked Purchase Orders
-                        </label>
-                        <select
-                          className="input-field min-h-40"
-                          defaultValue={getShipmentOrderIds(shipment)}
-                          id={`linked-pos-mobile-${shipment.id}`}
-                          multiple
-                          name="linked_purchase_order_ids"
-                        >
-                          {orders.map((order) => (
-                            <option key={order.id} value={order.id}>
-                              {order.po_number}
-                            </option>
-                          ))}
-                        </select>
+                        <ShipmentPurchaseOrderPicker
+                          helperText="Search and add or remove linked purchase orders."
+                          initialSelectedIds={getShipmentOrderIds(shipment)}
+                          inputName="linked_purchase_order_ids"
+                          inputPrefix={`shipment-mobile-${shipment.id}`}
+                          label="Linked Purchase Orders"
+                          orders={orderOptions}
+                        />
                       </div>
                       <div className="sm:col-span-2">
                         <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
@@ -354,22 +357,14 @@ export default async function ShipmentsPage() {
                               </select>
                             </div>
                             <div className="md:col-span-3">
-                              <label className="field-label" htmlFor={`linked-pos-${shipment.id}`}>
-                                Linked Purchase Orders
-                              </label>
-                              <select
-                                className="input-field min-h-40"
-                                defaultValue={getShipmentOrderIds(shipment)}
-                                id={`linked-pos-${shipment.id}`}
-                                multiple
-                                name="linked_purchase_order_ids"
-                              >
-                                {orders.map((order) => (
-                                  <option key={order.id} value={order.id}>
-                                    {order.po_number}
-                                  </option>
-                                ))}
-                              </select>
+                              <ShipmentPurchaseOrderPicker
+                                helperText="Search and add or remove linked purchase orders."
+                                initialSelectedIds={getShipmentOrderIds(shipment)}
+                                inputName="linked_purchase_order_ids"
+                                inputPrefix={`shipment-desktop-${shipment.id}`}
+                                label="Linked Purchase Orders"
+                                orders={orderOptions}
+                              />
                             </div>
                             <div className="md:col-span-3">
                               <SubmitButton className="btn-secondary" pendingLabel="Saving...">
@@ -390,7 +385,7 @@ export default async function ShipmentsPage() {
                   </td>
                   <td className="py-4 text-slate-600">{shipment.etd ? formatDate(shipment.etd) : "Not specified"}</td>
                   <td className="py-4 text-slate-600">{formatDate(shipment.eta)}</td>
-                  <td className="py-4 text-slate-600">{formatShipmentLinkedPos(shipment, orderMap)}</td>
+                  <td className="py-4 text-slate-600">{getShipmentLinkedPoDisplay(shipment, orderMap)}</td>
                   <td className="py-4">
                     <div className="space-y-3">
                       <StatusBadge value={shipmentStatus} />
