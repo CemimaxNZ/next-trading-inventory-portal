@@ -3,7 +3,7 @@ create extension if not exists pgcrypto;
 create type public.app_role as enum ('admin', 'operator', 'viewer');
 create type public.product_category as enum ('cemimax', 'accessories');
 create type public.purchase_order_status as enum ('paid', 'ready', 'shipped', 'arrived');
-create type public.shipment_status as enum ('at_sea', 'arrived', 'completed');
+create type public.shipment_status as enum ('scheduled', 'at_sea', 'arrived', 'completed');
 create type public.inventory_transaction_type as enum (
   'manual_add',
   'manual_remove',
@@ -58,10 +58,10 @@ create table public.purchase_order_items (
 create table public.shipments (
   id uuid primary key default gen_random_uuid(),
   container_number text not null unique,
-  product_id uuid not null references public.products (id) on delete restrict,
-  quantity integer not null check (quantity > 0),
+  product_id uuid references public.products (id) on delete restrict,
+  quantity integer check (quantity > 0),
   eta date not null,
-  arrival_status public.shipment_status not null default 'at_sea',
+  arrival_status public.shipment_status not null default 'scheduled',
   linked_purchase_order_id uuid references public.purchase_orders (id) on delete set null,
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default timezone('utc', now()),
@@ -307,12 +307,12 @@ end;
 $$;
 
 create or replace function public.save_purchase_order(
-  p_purchase_order_id uuid default null,
   p_po_number text,
   p_supplier text,
   p_order_date date,
   p_status public.purchase_order_status,
   p_items jsonb,
+  p_purchase_order_id uuid default null,
   p_created_by uuid default auth.uid()
 )
 returns public.purchase_orders
@@ -498,10 +498,38 @@ security definer
 set search_path = public
 as $$
 declare
-  old_in_transit_qty integer := case when tg_op <> 'INSERT' and old.arrival_status = 'at_sea' then old.quantity else 0 end;
-  new_in_transit_qty integer := case when tg_op <> 'DELETE' and new.arrival_status = 'at_sea' then new.quantity else 0 end;
-  old_landed_qty integer := case when tg_op <> 'INSERT' and old.arrival_status in ('arrived', 'completed') then old.quantity else 0 end;
-  new_landed_qty integer := case when tg_op <> 'DELETE' and new.arrival_status in ('arrived', 'completed') then new.quantity else 0 end;
+  old_in_transit_qty integer := case
+    when tg_op <> 'INSERT'
+      and old.arrival_status = 'at_sea'
+      and old.product_id is not null
+      and old.quantity is not null
+    then old.quantity
+    else 0
+  end;
+  new_in_transit_qty integer := case
+    when tg_op <> 'DELETE'
+      and new.arrival_status = 'at_sea'
+      and new.product_id is not null
+      and new.quantity is not null
+    then new.quantity
+    else 0
+  end;
+  old_landed_qty integer := case
+    when tg_op <> 'INSERT'
+      and old.arrival_status in ('arrived', 'completed')
+      and old.product_id is not null
+      and old.quantity is not null
+    then old.quantity
+    else 0
+  end;
+  new_landed_qty integer := case
+    when tg_op <> 'DELETE'
+      and new.arrival_status in ('arrived', 'completed')
+      and new.product_id is not null
+      and new.quantity is not null
+    then new.quantity
+    else 0
+  end;
 begin
   if tg_op = 'INSERT' then
     if new_in_transit_qty > 0 then
@@ -545,7 +573,7 @@ begin
     return old;
   end if;
 
-  if old.product_id = new.product_id then
+  if old.product_id is not distinct from new.product_id then
     if new_in_transit_qty <> old_in_transit_qty then
       perform public.apply_inventory_delta(new.product_id, 0, new_in_transit_qty - old_in_transit_qty);
     end if;
@@ -888,12 +916,12 @@ revoke execute on function public.reconcile_purchase_order_inventory(
 revoke execute on function public.sync_shipment_stock() from public;
 revoke execute on function public.perform_stock_adjustment(uuid, text, integer, text) from public;
 revoke execute on function public.save_purchase_order(
-  uuid,
   text,
   text,
   date,
   public.purchase_order_status,
   jsonb,
+  uuid,
   uuid
 ) from public;
 revoke execute on function public.delete_purchase_order(uuid) from public;
@@ -911,12 +939,12 @@ grant execute on function public.is_admin() to authenticated;
 grant execute on function public.is_operator_or_admin() to authenticated;
 grant execute on function public.perform_stock_adjustment(uuid, text, integer, text) to authenticated;
 grant execute on function public.save_purchase_order(
-  uuid,
   text,
   text,
   date,
   public.purchase_order_status,
   jsonb,
+  uuid,
   uuid
 ) to authenticated;
 grant execute on function public.delete_purchase_order(uuid) to authenticated;
