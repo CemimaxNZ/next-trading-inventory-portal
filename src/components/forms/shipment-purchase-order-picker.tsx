@@ -74,7 +74,7 @@ export function ShipmentPurchaseOrderPicker({
       : `${selectedOrders.length} purchase order${selectedOrders.length === 1 ? "" : "s"} linked`;
 
   return (
-    <div className="space-y-2">
+    <div className="relative z-50 space-y-2">
       <label className="field-label" htmlFor={`${inputPrefix}-po-search`}>
         {label}
       </label>
@@ -147,7 +147,7 @@ export function ShipmentPurchaseOrderPicker({
           />
 
           {isOpen ? (
-            <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+            <div className="absolute left-0 right-0 top-full z-[60] mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
               {filteredOrders.length > 0 ? (
                 filteredOrders.slice(0, 10).map((order) => (
                   <button

@@ -76,6 +76,7 @@ export default async function ShipmentsPage() {
 
       {isAdmin ? (
         <SectionCard
+          className="relative z-20"
           description="Track a container by its ETD, ETA, status, and one or more linked purchase orders."
           title="Create Shipment"
         >
@@ -129,6 +130,7 @@ export default async function ShipmentsPage() {
       ) : null}
 
       <SectionCard
+        className="relative z-0"
         description="Changing a shipment to Arrived automatically moves units from in-transit stock into current stock."
         title="Shipment List"
       >
