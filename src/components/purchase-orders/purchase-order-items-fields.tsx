@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Search } from "lucide-react";
+import { useMemo, useState } from "react";
 
 type ProductOption = {
   id: string;
@@ -23,18 +24,133 @@ type ItemRow = {
   key: number;
   product_id: string;
   quantity: string;
+  query: string;
 };
 
-function buildInitialRows(initialItems?: PurchaseOrderItemValue[]) {
+function getProductLabel(product: ProductOption) {
+  return `${product.name} (${product.sku})`;
+}
+
+function resolveQueryToProductId(products: ProductOption[], query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return "";
+  }
+
+  const matchedProduct = products.find((product) => {
+    const label = getProductLabel(product).toLowerCase();
+
+    return (
+      product.name.toLowerCase() === normalizedQuery
+      || product.sku.toLowerCase() === normalizedQuery
+      || label === normalizedQuery
+    );
+  });
+
+  return matchedProduct?.id ?? "";
+}
+
+function buildInitialRows(products: ProductOption[], initialItems?: PurchaseOrderItemValue[]) {
   if (!initialItems || initialItems.length === 0) {
-    return [{ key: 1, product_id: "", quantity: "1" }];
+    return [{ key: 1, product_id: "", quantity: "1", query: "" }];
   }
 
   return initialItems.map((item, index) => ({
     key: index + 1,
     product_id: item.product_id,
     quantity: String(item.quantity),
+    query: getProductLabel(
+      products.find((product) => product.id === item.product_id) ?? {
+        id: item.product_id,
+        name: "Unknown product",
+        sku: "No SKU",
+      },
+    ),
   }));
+}
+
+function SearchableProductPicker({
+  inputPrefix,
+  products,
+  row,
+  rowIndex,
+  onProductSelect,
+  onQueryChange,
+}: {
+  inputPrefix: string;
+  products: ProductOption[];
+  row: ItemRow;
+  rowIndex: number;
+  onProductSelect: (product: ProductOption) => void;
+  onQueryChange: (value: string) => void;
+}) {
+  const filteredProducts = useMemo(() => {
+    const normalizedQuery = row.query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return products;
+    }
+
+    return products.filter((product) =>
+      [product.name, product.sku, getProductLabel(product)]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [products, row.query]);
+
+  return (
+    <div className="space-y-2">
+      <label className="field-label" htmlFor={`${inputPrefix}-product-search-${row.key}`}>
+        Product {rowIndex + 1}
+      </label>
+      <input name="item_product_id" type="hidden" value={row.product_id} />
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-4 top-4 h-4 w-4 text-slate-400" />
+        <input
+          autoComplete="off"
+          className="input-field pl-11"
+          id={`${inputPrefix}-product-search-${row.key}`}
+          onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && filteredProducts.length > 0) {
+              event.preventDefault();
+              onProductSelect(filteredProducts[0]);
+            }
+          }}
+          placeholder="Search product name or SKU, then tap a result"
+          type="text"
+          value={row.query}
+        />
+        <div className="mt-2 max-h-52 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+          {filteredProducts.length > 0 ? (
+            filteredProducts.map((product) => {
+              const isSelected = product.id === row.product_id;
+
+              return (
+                <button
+                  className={`flex w-full items-start justify-between rounded-2xl px-3 py-2 text-left text-sm transition ${
+                    isSelected ? "bg-brand-50 text-slate-950" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                  key={product.id}
+                  onClick={() => onProductSelect(product)}
+                  type="button"
+                >
+                  <span className="font-medium">{product.name}</span>
+                  <span className="ml-4 shrink-0 text-xs text-slate-400">{product.sku}</span>
+                </button>
+              );
+            })
+          ) : (
+            <div className="rounded-2xl px-3 py-3 text-sm text-slate-500">
+              No products found for this keyword.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function PurchaseOrderItemsFields({
@@ -42,7 +158,7 @@ export function PurchaseOrderItemsFields({
   inputPrefix,
   initialItems,
 }: PurchaseOrderItemsFieldsProps) {
-  const [rows, setRows] = useState<ItemRow[]>(() => buildInitialRows(initialItems));
+  const [rows, setRows] = useState<ItemRow[]>(() => buildInitialRows(products, initialItems));
 
   function addRow() {
     setRows((current) => [
@@ -51,6 +167,7 @@ export function PurchaseOrderItemsFields({
         key: current.length === 0 ? 1 : Math.max(...current.map((row) => row.key)) + 1,
         product_id: "",
         quantity: "1",
+        query: "",
       },
     ]);
   }
@@ -58,14 +175,14 @@ export function PurchaseOrderItemsFields({
   function removeRow(key: number) {
     setRows((current) => {
       if (current.length === 1) {
-        return [{ ...current[0], product_id: "", quantity: "1" }];
+        return [{ ...current[0], product_id: "", quantity: "1", query: "" }];
       }
 
       return current.filter((row) => row.key !== key);
     });
   }
 
-  function updateRow(key: number, field: "product_id" | "quantity", value: string) {
+  function updateRow(key: number, field: "product_id" | "quantity" | "query", value: string) {
     setRows((current) =>
       current.map((row) => (row.key === key ? { ...row, [field]: value } : row)),
     );
@@ -78,26 +195,29 @@ export function PurchaseOrderItemsFields({
           className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1.4fr_0.8fr_auto]"
           key={row.key}
         >
-          <div>
-            <label className="field-label" htmlFor={`${inputPrefix}-product-${row.key}`}>
-              Product {index + 1}
-            </label>
-            <select
-              className="input-field"
-              id={`${inputPrefix}-product-${row.key}`}
-              name="item_product_id"
-              onChange={(event) => updateRow(row.key, "product_id", event.target.value)}
-              required
-              value={row.product_id}
-            >
-              <option value="">Select product</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name} ({product.sku})
-                </option>
-              ))}
-            </select>
-          </div>
+          <SearchableProductPicker
+            inputPrefix={inputPrefix}
+            onProductSelect={(product) => {
+              setRows((current) =>
+                current.map((item) =>
+                  item.key === row.key
+                    ? {
+                        ...item,
+                        product_id: product.id,
+                        query: getProductLabel(product),
+                      }
+                    : item,
+                ),
+              );
+            }}
+            onQueryChange={(value) => {
+              updateRow(row.key, "query", value);
+              updateRow(row.key, "product_id", resolveQueryToProductId(products, value));
+            }}
+            products={products}
+            row={row}
+            rowIndex={index}
+          />
 
           <div>
             <label className="field-label" htmlFor={`${inputPrefix}-quantity-${row.key}`}>
