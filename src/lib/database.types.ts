@@ -137,9 +137,11 @@ export type Database = {
           container_number: string;
           product_id: string | null;
           quantity: number | null;
+          etd: string | null;
           eta: string;
           arrival_status: Database["public"]["Enums"]["shipment_status"];
           linked_purchase_order_id: string | null;
+          linked_purchase_order_ids: string[];
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -149,9 +151,11 @@ export type Database = {
           container_number: string;
           product_id?: string | null;
           quantity?: number | null;
+          etd?: string | null;
           eta: string;
           arrival_status?: Database["public"]["Enums"]["shipment_status"];
           linked_purchase_order_id?: string | null;
+          linked_purchase_order_ids?: string[];
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -160,9 +164,11 @@ export type Database = {
           container_number?: string;
           product_id?: string | null;
           quantity?: number | null;
+          etd?: string | null;
           eta?: string;
           arrival_status?: Database["public"]["Enums"]["shipment_status"];
           linked_purchase_order_id?: string | null;
+          linked_purchase_order_ids?: string[];
           created_by?: string | null;
           updated_at?: string;
         };
