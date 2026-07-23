@@ -115,9 +115,7 @@ export async function createShipmentAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  if (parsed.arrival_status === "at_sea") {
-    await markLinkedPurchaseOrdersShipped(supabase, parsed.linked_purchase_order_ids);
-  }
+  await markLinkedPurchaseOrdersShipped(supabase, parsed.linked_purchase_order_ids);
 
   revalidatePath("/");
   revalidatePath("/purchase-orders");
@@ -156,9 +154,7 @@ export async function updateShipmentAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  if (parsed.arrival_status === "at_sea") {
-    await markLinkedPurchaseOrdersShipped(supabase, parsed.linked_purchase_order_ids);
-  }
+  await markLinkedPurchaseOrdersShipped(supabase, parsed.linked_purchase_order_ids);
 
   revalidatePath("/");
   revalidatePath("/purchase-orders");
