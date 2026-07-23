@@ -27,6 +27,7 @@ export function getStatusTone(value: string) {
     case "completed":
     case "paid":
       return "bg-emerald-100 text-emerald-800";
+    case "scheduled":
     case "ready":
       return "bg-amber-100 text-amber-800";
     case "shipped":
@@ -36,4 +37,3 @@ export function getStatusTone(value: string) {
       return "bg-slate-100 text-slate-700";
   }
 }
-
