@@ -6,7 +6,7 @@ export type Database = {
       app_role: "admin" | "operator" | "viewer";
       product_category: "cemimax" | "accessories";
       purchase_order_status: "paid" | "ready" | "shipped" | "arrived";
-      shipment_status: "at_sea" | "arrived" | "completed";
+      shipment_status: "scheduled" | "at_sea" | "arrived" | "completed";
       inventory_transaction_type:
         | "manual_add"
         | "manual_remove"
@@ -135,8 +135,8 @@ export type Database = {
         Row: {
           id: string;
           container_number: string;
-          product_id: string;
-          quantity: number;
+          product_id: string | null;
+          quantity: number | null;
           eta: string;
           arrival_status: Database["public"]["Enums"]["shipment_status"];
           linked_purchase_order_id: string | null;
@@ -147,8 +147,8 @@ export type Database = {
         Insert: {
           id?: string;
           container_number: string;
-          product_id: string;
-          quantity: number;
+          product_id?: string | null;
+          quantity?: number | null;
           eta: string;
           arrival_status?: Database["public"]["Enums"]["shipment_status"];
           linked_purchase_order_id?: string | null;
@@ -158,8 +158,8 @@ export type Database = {
         };
         Update: {
           container_number?: string;
-          product_id?: string;
-          quantity?: number;
+          product_id?: string | null;
+          quantity?: number | null;
           eta?: string;
           arrival_status?: Database["public"]["Enums"]["shipment_status"];
           linked_purchase_order_id?: string | null;
