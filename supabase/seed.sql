@@ -68,10 +68,12 @@ insert into public.shipments (
   container_number,
   product_id,
   quantity,
+  etd,
   eta,
-  arrival_status
+  arrival_status,
+  linked_purchase_order_ids
 )
 values
-  ('7d71ba7f-9f9c-4e44-a1bd-63548f0e4ef0', 'CONT-NE-4401', '8ea18ad8-bc0f-4f59-9cb8-03194370554d', 30, date '2026-07-27', 'at_sea'),
-  ('1e313a97-32f9-4d67-9920-843bf49d41c4', 'CONT-NE-4402', '35fc0361-3d81-48bf-b2b2-f76838636d4f', 25, date '2026-07-19', 'arrived')
+  ('7d71ba7f-9f9c-4e44-a1bd-63548f0e4ef0', 'CONT-NE-4401', '8ea18ad8-bc0f-4f59-9cb8-03194370554d', 30, date '2026-07-20', date '2026-07-27', 'at_sea', '{}'),
+  ('1e313a97-32f9-4d67-9920-843bf49d41c4', 'CONT-NE-4402', '35fc0361-3d81-48bf-b2b2-f76838636d4f', 25, date '2026-07-12', date '2026-07-19', 'arrived', '{}')
 on conflict (id) do nothing;
