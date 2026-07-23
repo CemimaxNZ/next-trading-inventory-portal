@@ -148,8 +148,12 @@ export default async function DashboardPage() {
         title="Shipment Overview"
       >
         <div className="grid gap-4 md:grid-cols-3">
-          {(["at_sea", "arrived", "completed"] as ShipmentRow["arrival_status"][]).map((status) => {
-            const count = shipments.filter((shipment) => shipment.arrival_status === status).length;
+          {(["scheduled", "at_sea", "arrived"] as ShipmentRow["arrival_status"][]).map((status) => {
+            const count = shipments.filter((shipment) =>
+              status === "arrived"
+                ? shipment.arrival_status === "arrived" || shipment.arrival_status === "completed"
+                : shipment.arrival_status === status,
+            ).length;
 
             return (
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4" key={status}>
@@ -166,4 +170,3 @@ export default async function DashboardPage() {
     </>
   );
 }
-
