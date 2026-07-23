@@ -3,7 +3,53 @@
 import { revalidatePath } from "next/cache";
 import { requirePortalUser } from "@/lib/session";
 import { rpcMutation, tableMutation } from "@/lib/supabase/mutations";
+import type { ShipmentRow } from "@/lib/database.types";
 import { shipmentSchema, shipmentStatusSchema } from "@/lib/validators";
+
+type PortalSupabaseClient = Awaited<ReturnType<typeof requirePortalUser>>["supabase"];
+type ShipmentLinkRecord = Pick<
+  ShipmentRow,
+  "id" | "linked_purchase_order_id" | "linked_purchase_order_ids"
+>;
+
+function getShipmentOrderIds(shipment: ShipmentLinkRecord) {
+  if (shipment.linked_purchase_order_ids.length > 0) {
+    return shipment.linked_purchase_order_ids;
+  }
+
+  return shipment.linked_purchase_order_id ? [shipment.linked_purchase_order_id] : [];
+}
+
+async function ensurePurchaseOrdersAvailable(
+  supabase: PortalSupabaseClient,
+  linkedPurchaseOrderIds: string[],
+  currentShipmentId?: string,
+) {
+  if (linkedPurchaseOrderIds.length === 0) {
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("shipments")
+    .select("id, linked_purchase_order_id, linked_purchase_order_ids");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const selectedIds = new Set(linkedPurchaseOrderIds);
+  const conflictingShipment = ((data ?? []) as ShipmentLinkRecord[]).find((shipment) => {
+    if (shipment.id === currentShipmentId) {
+      return false;
+    }
+
+    return getShipmentOrderIds(shipment).some((orderId) => selectedIds.has(orderId));
+  });
+
+  if (conflictingShipment) {
+    throw new Error("One or more selected purchase orders are already linked to another shipment.");
+  }
+}
 
 export async function createShipmentAction(formData: FormData) {
   const { supabase, profile } = await requirePortalUser("admin");
@@ -18,6 +64,8 @@ export async function createShipmentAction(formData: FormData) {
       .map((value) => String(value).trim())
       .filter(Boolean),
   });
+
+  await ensurePurchaseOrdersAvailable(supabase, parsed.linked_purchase_order_ids);
 
   const { error } = await shipments.insert({
     container_number: parsed.container_number,
@@ -51,6 +99,8 @@ export async function updateShipmentAction(formData: FormData) {
       .map((value) => String(value).trim())
       .filter(Boolean),
   });
+
+  await ensurePurchaseOrdersAvailable(supabase, parsed.linked_purchase_order_ids, id);
 
   const { error } = await shipments
     .update({

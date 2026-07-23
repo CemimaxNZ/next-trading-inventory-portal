@@ -27,6 +27,27 @@ function getShipmentOrderIds(shipment: ShipmentRow) {
   return shipment.linked_purchase_order_id ? [shipment.linked_purchase_order_id] : [];
 }
 
+function getAvailableOrderOptions(
+  orders: PurchaseOrderRow[],
+  shipments: ShipmentRow[],
+  currentShipment?: ShipmentRow,
+) {
+  const currentOrderIds = new Set(currentShipment ? getShipmentOrderIds(currentShipment) : []);
+  const usedOrderIds = new Set(
+    shipments
+      .filter((shipment) => shipment.id !== currentShipment?.id)
+      .flatMap(getShipmentOrderIds),
+  );
+
+  return orders
+    .filter((order) => !usedOrderIds.has(order.id) || currentOrderIds.has(order.id))
+    .map((order) => ({
+      id: order.id,
+      po_number: order.po_number,
+      supplier: order.supplier,
+    }));
+}
+
 function getShipmentLinkedPoDisplay(shipment: ShipmentRow, orderMap: Map<string, PurchaseOrderRow>) {
   const linkedOrderIds = getShipmentOrderIds(shipment);
 
@@ -58,11 +79,7 @@ export default async function ShipmentsPage() {
   const shipments = (shipmentsData ?? []) as ShipmentRow[];
   const orders = (ordersData ?? []) as PurchaseOrderRow[];
   const orderMap = new Map(orders.map((order) => [order.id, order]));
-  const orderOptions = orders.map((order) => ({
-    id: order.id,
-    po_number: order.po_number,
-    supplier: order.supplier,
-  }));
+  const createOrderOptions = getAvailableOrderOptions(orders, shipments);
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
   const today = new Date().toISOString().slice(0, 10);
@@ -117,7 +134,7 @@ export default async function ShipmentsPage() {
                 inputName="linked_purchase_order_ids"
                 inputPrefix="shipment-create"
                 label="Linked Purchase Orders"
-                orders={orderOptions}
+                orders={createOrderOptions}
               />
             </div>
             <div className="md:col-span-2">
@@ -251,7 +268,7 @@ export default async function ShipmentsPage() {
                             inputName="linked_purchase_order_ids"
                             inputPrefix={`shipment-mobile-${shipment.id}`}
                             label="Linked Purchase Orders"
-                            orders={orderOptions}
+                            orders={getAvailableOrderOptions(orders, shipments, shipment)}
                           />
                         </div>
                         <div className="sm:col-span-2">
@@ -364,7 +381,7 @@ export default async function ShipmentsPage() {
                                 inputName="linked_purchase_order_ids"
                                 inputPrefix={`shipment-desktop-${shipment.id}`}
                                 label="Linked Purchase Orders"
-                                orders={orderOptions}
+                                orders={getAvailableOrderOptions(orders, shipments, shipment)}
                               />
                             </div>
                             <div className="md:col-span-3">

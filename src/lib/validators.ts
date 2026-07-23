@@ -59,7 +59,17 @@ export const shipmentSchema = z.object({
     .or(z.literal("")),
   eta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   arrival_status: z.enum(shipmentStatuses),
-  linked_purchase_order_ids: z.array(z.string().uuid()).default([]),
+  linked_purchase_order_ids: z
+    .array(z.string().uuid())
+    .default([])
+    .superRefine((ids, ctx) => {
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "A purchase order can only be linked once per shipment.",
+        });
+      }
+    }),
 });
 
 export const shipmentStatusSchema = z.object({
