@@ -13,12 +13,14 @@ export async function createShipmentAction(formData: FormData) {
     product_id: String(formData.get("product_id") ?? ""),
     quantity: formData.get("quantity"),
     eta: String(formData.get("eta") ?? ""),
-    arrival_status: String(formData.get("arrival_status") ?? "at_sea"),
+    arrival_status: String(formData.get("arrival_status") ?? "scheduled"),
     linked_purchase_order_id: String(formData.get("linked_purchase_order_id") ?? ""),
   });
 
   const { error } = await shipments.insert({
     ...parsed,
+    product_id: parsed.product_id ?? null,
+    quantity: parsed.quantity ?? null,
     linked_purchase_order_id: parsed.linked_purchase_order_id || null,
     created_by: profile.id,
   });
@@ -40,12 +42,14 @@ export async function updateShipmentAction(formData: FormData) {
     product_id: String(formData.get("product_id") ?? ""),
     quantity: formData.get("quantity"),
     eta: String(formData.get("eta") ?? ""),
-    arrival_status: String(formData.get("arrival_status") ?? "at_sea"),
+    arrival_status: String(formData.get("arrival_status") ?? "scheduled"),
     linked_purchase_order_id: String(formData.get("linked_purchase_order_id") ?? ""),
   });
 
   const { error } = await shipments.update({
     ...parsed,
+    product_id: parsed.product_id ?? null,
+    quantity: parsed.quantity ?? null,
     linked_purchase_order_id: parsed.linked_purchase_order_id || null,
   }).eq("id", id);
 
