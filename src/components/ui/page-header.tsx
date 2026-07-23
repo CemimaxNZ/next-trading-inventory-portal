@@ -8,7 +8,7 @@ type PageHeaderProps = {
 
 export function PageHeader({ title, description, children }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-[2rem] bg-brand-400 px-6 py-7 text-slate-950 shadow-card md:flex-row md:items-end md:justify-between">
+    <div className="flex min-h-[220px] flex-col gap-4 rounded-[2rem] bg-brand-400 px-6 py-8 text-slate-950 shadow-card md:min-h-[300px] md:flex-row md:items-end md:justify-between md:px-8 md:py-10">
       <div className="max-w-2xl">
         <Image
           alt="NEXT logo"
