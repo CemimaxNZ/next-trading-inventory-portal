@@ -18,6 +18,7 @@ import { formatDate } from "@/lib/utils";
 type PurchaseOrdersPageProps = {
   searchParams?: Promise<{
     error?: string;
+    highlight?: string;
   }>;
 };
 
@@ -64,6 +65,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
   const { supabase, profile } = await requirePortalUser();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const errorMessage = resolvedSearchParams?.error;
+  const highlightedOrderId = resolvedSearchParams?.highlight;
   const [{ data: ordersData }, { data: productsData }, { data: orderItemsData, error: orderItemsError }] = await Promise.all([
     supabase.from("purchase_orders").select("*").order("order_date", { ascending: false }),
     supabase.from("products").select("*").order("name"),
@@ -189,7 +191,12 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
 
             return (
               <article
-                className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                className={`scroll-mt-24 space-y-4 rounded-3xl border p-4 shadow-sm transition ${
+                  highlightedOrderId === purchaseOrder.id
+                    ? "border-brand-300 bg-brand-50/50 ring-2 ring-brand-100"
+                    : "border-slate-200 bg-white"
+                }`}
+                id={`po-${purchaseOrder.id}`}
                 key={purchaseOrder.id}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -369,7 +376,15 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                 const items = orderItemsMap.get(purchaseOrder.id) ?? [];
 
                 return (
-                  <tr className="border-b border-slate-100 align-top last:border-b-0" key={purchaseOrder.id}>
+                  <tr
+                    className={`scroll-mt-24 border-b align-top last:border-b-0 ${
+                      highlightedOrderId === purchaseOrder.id
+                        ? "border-brand-200 bg-brand-50/40"
+                        : "border-slate-100"
+                    }`}
+                    id={`po-${purchaseOrder.id}`}
+                    key={purchaseOrder.id}
+                  >
                     <td className="py-4">
                       <p className="font-medium text-slate-950">{purchaseOrder.po_number}</p>
                       {isAdmin ? (

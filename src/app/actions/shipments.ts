@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requirePortalUser } from "@/lib/session";
 import { rpcMutation, tableMutation } from "@/lib/supabase/mutations";
-import type { ShipmentRow } from "@/lib/database.types";
+import type { PurchaseOrderRow, ShipmentRow } from "@/lib/database.types";
 import { shipmentSchema, shipmentStatusSchema } from "@/lib/validators";
 
 type PortalSupabaseClient = Awaited<ReturnType<typeof requirePortalUser>>["supabase"];
@@ -51,6 +51,40 @@ async function ensurePurchaseOrdersAvailable(
   }
 }
 
+async function markLinkedPurchaseOrdersShipped(
+  supabase: PortalSupabaseClient,
+  linkedPurchaseOrderIds: string[],
+) {
+  if (linkedPurchaseOrderIds.length === 0) {
+    return;
+  }
+
+  const runRpc = rpcMutation(supabase);
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .select("id, status")
+    .in("id", linkedPurchaseOrderIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const orders = (data ?? []) as Pick<PurchaseOrderRow, "id" | "status">[];
+
+  for (const order of orders) {
+    if (order.status === "paid" || order.status === "ready") {
+      const { error: updateError } = await runRpc("update_purchase_order_status", {
+        p_purchase_order_id: order.id,
+        p_status: "shipped",
+      });
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+    }
+  }
+}
+
 export async function createShipmentAction(formData: FormData) {
   const { supabase, profile } = await requirePortalUser("admin");
   const shipments = tableMutation(supabase, "shipments");
@@ -81,7 +115,12 @@ export async function createShipmentAction(formData: FormData) {
     throw new Error(error.message);
   }
 
+  if (parsed.arrival_status === "at_sea") {
+    await markLinkedPurchaseOrdersShipped(supabase, parsed.linked_purchase_order_ids);
+  }
+
   revalidatePath("/");
+  revalidatePath("/purchase-orders");
   revalidatePath("/shipments");
 }
 
@@ -117,7 +156,12 @@ export async function updateShipmentAction(formData: FormData) {
     throw new Error(error.message);
   }
 
+  if (parsed.arrival_status === "at_sea") {
+    await markLinkedPurchaseOrdersShipped(supabase, parsed.linked_purchase_order_ids);
+  }
+
   revalidatePath("/");
+  revalidatePath("/purchase-orders");
   revalidatePath("/shipments");
 }
 
@@ -138,7 +182,25 @@ export async function updateShipmentStatusAction(formData: FormData) {
     throw new Error(error.message);
   }
 
+  if (parsed.status === "at_sea") {
+    const { data: shipmentData, error: shipmentError } = await supabase
+      .from("shipments")
+      .select("id, linked_purchase_order_id, linked_purchase_order_ids")
+      .eq("id", parsed.id)
+      .single();
+
+    if (shipmentError) {
+      throw new Error(shipmentError.message);
+    }
+
+    await markLinkedPurchaseOrdersShipped(
+      supabase,
+      getShipmentOrderIds(shipmentData as ShipmentLinkRecord),
+    );
+  }
+
   revalidatePath("/");
+  revalidatePath("/purchase-orders");
   revalidatePath("/shipments");
 }
 

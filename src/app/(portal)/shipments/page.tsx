@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   createShipmentAction,
   deleteShipmentAction,
@@ -58,12 +59,13 @@ function getShipmentLinkedPoDisplay(shipment: ShipmentRow, orderMap: Map<string,
   return (
     <div className="flex flex-wrap gap-2">
       {linkedOrderIds.map((orderId) => (
-        <span
-          className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-slate-700"
+        <Link
+          className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-brand-100 hover:text-slate-950"
+          href={`/purchase-orders?highlight=${orderId}#po-${orderId}`}
           key={orderId}
         >
           {orderMap.get(orderId)?.po_number ?? "Unknown PO"}
-        </span>
+        </Link>
       ))}
     </div>
   );
