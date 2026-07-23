@@ -60,9 +60,11 @@ create table public.shipments (
   container_number text not null unique,
   product_id uuid references public.products (id) on delete restrict,
   quantity integer check (quantity > 0),
+  etd date,
   eta date not null,
   arrival_status public.shipment_status not null default 'scheduled',
   linked_purchase_order_id uuid references public.purchase_orders (id) on delete set null,
+  linked_purchase_order_ids uuid[] not null default '{}',
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
