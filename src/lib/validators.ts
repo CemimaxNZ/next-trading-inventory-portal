@@ -11,7 +11,7 @@ export const productSchema = z.object({
   name: z.string().trim().min(2),
   sku: z.string().trim().min(2),
   category: z.enum(productCategories),
-    current_stock: z.coerce.number().int().min(0),
+  current_stock: z.coerce.number().int().min(0),
   low_stock_warning_level: z.coerce.number().int().min(0),
 });
 
@@ -52,8 +52,23 @@ export const purchaseOrderStatusSchema = z.object({
 
 export const shipmentSchema = z.object({
   container_number: z.string().trim().min(3),
-  product_id: z.string().uuid(),
-  quantity: z.coerce.number().int().positive(),
+  product_id: z.preprocess(
+    (value) => {
+      const normalized = String(value ?? "").trim();
+      return normalized || undefined;
+    },
+    z.string().uuid().optional(),
+  ),
+  quantity: z.preprocess(
+    (value) => {
+      if (value === undefined || value === null || String(value).trim() === "") {
+        return undefined;
+      }
+
+      return value;
+    },
+    z.coerce.number().int().positive().optional(),
+  ),
   eta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   arrival_status: z.enum(shipmentStatuses),
   linked_purchase_order_id: z.string().uuid().optional().or(z.literal("")),
