@@ -85,6 +85,7 @@ function SearchableProductPicker({
   onProductSelect: (product: ProductOption) => void;
   onQueryChange: (value: string) => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const filteredProducts = useMemo(() => {
     const normalizedQuery = row.query.trim().toLowerCase();
 
@@ -112,42 +113,59 @@ function SearchableProductPicker({
           autoComplete="off"
           className="input-field pl-11"
           id={`${inputPrefix}-product-search-${row.key}`}
-          onChange={(event) => onQueryChange(event.target.value)}
+          onBlur={() => setIsOpen(false)}
+          onChange={(event) => {
+            const value = event.target.value;
+            onQueryChange(value);
+            setIsOpen(Boolean(value.trim()));
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && filteredProducts.length > 0) {
               event.preventDefault();
               onProductSelect(filteredProducts[0]);
+              setIsOpen(false);
+            }
+          }}
+          onFocus={() => {
+            if (row.query.trim()) {
+              setIsOpen(true);
             }
           }}
           placeholder="Search product name or SKU, then tap a result"
           type="text"
           value={row.query}
         />
-        <div className="mt-2 max-h-52 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => {
-              const isSelected = product.id === row.product_id;
+        {isOpen ? (
+          <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-52 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-lg">
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((product) => {
+                const isSelected = product.id === row.product_id;
 
-              return (
-                <button
-                  className={`flex w-full items-start justify-between rounded-2xl px-3 py-2 text-left text-sm transition ${
-                    isSelected ? "bg-brand-50 text-slate-950" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                  key={product.id}
-                  onClick={() => onProductSelect(product)}
-                  type="button"
-                >
-                  <span className="font-medium">{product.name}</span>
-                  <span className="ml-4 shrink-0 text-xs text-slate-400">{product.sku}</span>
-                </button>
-              );
-            })
-          ) : (
-            <div className="rounded-2xl px-3 py-3 text-sm text-slate-500">
-              No products found for this keyword.
-            </div>
-          )}
-        </div>
+                return (
+                  <button
+                    className={`flex w-full items-start justify-between rounded-2xl px-3 py-2 text-left text-sm transition ${
+                      isSelected ? "bg-brand-50 text-slate-950" : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                    key={product.id}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onProductSelect(product);
+                      setIsOpen(false);
+                    }}
+                    type="button"
+                  >
+                    <span className="font-medium">{product.name}</span>
+                    <span className="ml-4 shrink-0 text-xs text-slate-400">{product.sku}</span>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="rounded-2xl px-3 py-3 text-sm text-slate-500">
+                No products found for this keyword.
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   );
