@@ -132,7 +132,7 @@ export default async function ShipmentsPage() {
         description="Changing a shipment to Arrived automatically moves units from in-transit stock into current stock."
         title="Shipment List"
       >
-      <div className="space-y-4 md:hidden">
+        <div className="space-y-4 md:hidden">
           {shipments.map((shipment) => {
             const shipmentStatus = getVisibleShipmentStatus(shipment.arrival_status);
 

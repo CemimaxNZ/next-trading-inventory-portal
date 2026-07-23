@@ -127,12 +127,12 @@ end;
 $$;
 
 create or replace function public.save_purchase_order(
-  p_purchase_order_id uuid default null,
   p_po_number text,
   p_supplier text,
   p_order_date date,
   p_status public.purchase_order_status,
   p_items jsonb,
+  p_purchase_order_id uuid default null,
   p_created_by uuid default auth.uid()
 )
 returns public.purchase_orders
@@ -385,24 +385,24 @@ revoke execute on function public.reconcile_purchase_order_inventory(
 ) from public;
 
 revoke execute on function public.save_purchase_order(
-  uuid,
   text,
   text,
   date,
   public.purchase_order_status,
   jsonb,
+  uuid,
   uuid
 ) from public;
 
 revoke execute on function public.delete_purchase_order(uuid) from public;
 
 grant execute on function public.save_purchase_order(
-  uuid,
   text,
   text,
   date,
   public.purchase_order_status,
   jsonb,
+  uuid,
   uuid
 ) to authenticated;
 
