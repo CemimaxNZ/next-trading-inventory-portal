@@ -12,6 +12,13 @@ else
   echo "Using your current GitHub SSH setup and pushing latest local commit to GitHub..."
 fi
 
+echo "Fetching latest changes from GitHub..."
+./repo-git fetch origin
+
+echo "Rebasing local commits on top of origin/main..."
+./repo-git rebase origin/main
+
+echo "Pushing rebased commits to GitHub..."
 ./repo-git push origin main
 
 echo "Push finished. Vercel will start deploying automatically."
