@@ -42,7 +42,9 @@ Internal inventory management portal built with Next.js 15 App Router, TypeScrip
 4. In the Supabase SQL editor, run:
 
    1. `supabase/schema.sql`
-   2. `supabase/seed.sql`
+   2. `supabase/shipment-status-and-optional-fields.sql`
+   3. `supabase/shipment-etd-and-multi-po.sql`
+   4. `supabase/seed.sql`
 
 5. Create your first auth user in Supabase Authentication.
 
@@ -68,7 +70,7 @@ Internal inventory management portal built with Next.js 15 App Router, TypeScrip
 
 - All portal routes require login through middleware and server-side guards.
 - The `SUPABASE_SERVICE_ROLE_KEY` is used only for admin-only user management actions on the server.
-- Shipments include a linked product and quantity so the portal can track in-transit stock accurately.
+- Shipments support ETD, ETA, status, and linking multiple purchase orders in one container.
 - Operators can adjust stock and update shipment / purchase order statuses, but cannot manage users or delete products.
 - Product creation and editing are restricted to admins in this implementation.
 

@@ -110,7 +110,7 @@ export default async function ShipmentsPage() {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="md:col-span-2">
               <ShipmentPurchaseOrderPicker
                 helperText="Search and add multiple purchase orders for the same shipment."
                 inputName="linked_purchase_order_ids"
@@ -135,140 +135,139 @@ export default async function ShipmentsPage() {
         <div className="space-y-4 md:hidden">
           {shipments.map((shipment) => {
             const shipmentStatus = getVisibleShipmentStatus(shipment.arrival_status);
-
             return (
               <article
-              className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
-              key={shipment.id}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">Container</p>
-                  <p className="mt-1 text-base font-semibold text-slate-950">{shipment.container_number}</p>
+                className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                key={shipment.id}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">Container</p>
+                    <p className="mt-1 text-base font-semibold text-slate-950">{shipment.container_number}</p>
+                  </div>
+                  <StatusBadge value={shipmentStatus} />
                 </div>
-                <StatusBadge value={shipmentStatus} />
-              </div>
 
-              <div className="grid gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETD</p>
-                  <p className="mt-1 text-slate-700">{shipment.etd ? formatDate(shipment.etd) : "Not specified"}</p>
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETD</p>
+                    <p className="mt-1 text-slate-700">{shipment.etd ? formatDate(shipment.etd) : "Not specified"}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETA</p>
+                    <p className="mt-1 text-slate-700">{formatDate(shipment.eta)}</p>
+                  </div>
+                  <div className="sm:col-span-2 rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Linked PO</p>
+                    <div className="mt-2">{getShipmentLinkedPoDisplay(shipment, orderMap)}</div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Linked PO</p>
-                  <div className="mt-1">{getShipmentLinkedPoDisplay(shipment, orderMap)}</div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETA</p>
-                  <p className="mt-1 text-slate-700">{formatDate(shipment.eta)}</p>
-                </div>
-              </div>
 
-              {canUpdateStatus ? (
-                <form action={updateShipmentStatusAction} className="flex flex-col gap-2">
-                  <input name="id" type="hidden" value={shipment.id} />
-                  <select className="input-field py-2" defaultValue={shipmentStatus} name="status">
-                    {shipmentStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {formatEnumLabel(status)}
-                      </option>
-                    ))}
-                  </select>
-                  <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
-                    Update Status
-                  </SubmitButton>
-                </form>
-              ) : null}
+                {canUpdateStatus ? (
+                  <form action={updateShipmentStatusAction} className="flex flex-col gap-2">
+                    <input name="id" type="hidden" value={shipment.id} />
+                    <select className="input-field py-2" defaultValue={shipmentStatus} name="status">
+                      {shipmentStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {formatEnumLabel(status)}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                      Update Status
+                    </SubmitButton>
+                  </form>
+                ) : null}
 
-              {isAdmin ? (
-                <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                    Edit shipment
-                  </summary>
-                  <div className="mt-4 space-y-4">
-                    <form action={updateShipmentAction} className="grid gap-4 sm:grid-cols-2">
-                      <input name="id" type="hidden" value={shipment.id} />
-                      <div>
-                        <label className="field-label" htmlFor={`container-mobile-${shipment.id}`}>
-                          Container Number
-                        </label>
-                        <input
-                          className="input-field"
-                          defaultValue={shipment.container_number}
-                          id={`container-mobile-${shipment.id}`}
-                          name="container_number"
-                          required
-                          type="text"
-                        />
-                      </div>
-                      <div>
-                        <label className="field-label" htmlFor={`etd-mobile-${shipment.id}`}>
-                          ETD
-                        </label>
-                        <input
-                          className="input-field"
-                          defaultValue={shipment.etd ?? ""}
-                          id={`etd-mobile-${shipment.id}`}
-                          name="etd"
-                          type="date"
-                        />
-                      </div>
-                      <div>
-                        <label className="field-label" htmlFor={`eta-mobile-${shipment.id}`}>
-                          ETA
-                        </label>
-                        <input
-                          className="input-field"
-                          defaultValue={shipment.eta}
-                          id={`eta-mobile-${shipment.id}`}
-                          name="eta"
-                          required
-                          type="date"
-                        />
-                      </div>
-                      <div>
+                {isAdmin ? (
+                  <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                      Edit shipment
+                    </summary>
+                    <div className="mt-4 space-y-4">
+                      <form action={updateShipmentAction} className="grid gap-4 sm:grid-cols-2">
+                        <input name="id" type="hidden" value={shipment.id} />
+                        <div>
+                          <label className="field-label" htmlFor={`container-mobile-${shipment.id}`}>
+                            Container Number
+                          </label>
+                          <input
+                            className="input-field"
+                            defaultValue={shipment.container_number}
+                            id={`container-mobile-${shipment.id}`}
+                            name="container_number"
+                            required
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="field-label" htmlFor={`etd-mobile-${shipment.id}`}>
+                            ETD
+                          </label>
+                          <input
+                            className="input-field"
+                            defaultValue={shipment.etd ?? ""}
+                            id={`etd-mobile-${shipment.id}`}
+                            name="etd"
+                            type="date"
+                          />
+                        </div>
+                        <div>
+                          <label className="field-label" htmlFor={`eta-mobile-${shipment.id}`}>
+                            ETA
+                          </label>
+                          <input
+                            className="input-field"
+                            defaultValue={shipment.eta}
+                            id={`eta-mobile-${shipment.id}`}
+                            name="eta"
+                            required
+                            type="date"
+                          />
+                        </div>
+                        <div>
                           <label className="field-label" htmlFor={`status-mobile-${shipment.id}`}>
                             Status
-                        </label>
-                        <select
-                          className="input-field"
-                          defaultValue={shipmentStatus}
-                          id={`status-mobile-${shipment.id}`}
-                          name="arrival_status"
-                        >
-                          {shipmentStatuses.map((status) => (
-                            <option key={status} value={status}>
-                              {formatEnumLabel(status)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <ShipmentPurchaseOrderPicker
-                          helperText="Search and add or remove linked purchase orders."
-                          initialSelectedIds={getShipmentOrderIds(shipment)}
-                          inputName="linked_purchase_order_ids"
-                          inputPrefix={`shipment-mobile-${shipment.id}`}
-                          label="Linked Purchase Orders"
-                          orders={orderOptions}
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
-                          Save Changes
-                        </SubmitButton>
-                      </div>
-                    </form>
+                          </label>
+                          <select
+                            className="input-field"
+                            defaultValue={shipmentStatus}
+                            id={`status-mobile-${shipment.id}`}
+                            name="arrival_status"
+                          >
+                            {shipmentStatuses.map((status) => (
+                              <option key={status} value={status}>
+                                {formatEnumLabel(status)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <ShipmentPurchaseOrderPicker
+                            helperText="Search and add or remove linked purchase orders."
+                            initialSelectedIds={getShipmentOrderIds(shipment)}
+                            inputName="linked_purchase_order_ids"
+                            inputPrefix={`shipment-mobile-${shipment.id}`}
+                            label="Linked Purchase Orders"
+                            orders={orderOptions}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                            Save Changes
+                          </SubmitButton>
+                        </div>
+                      </form>
 
-                    <form action={deleteShipmentAction}>
-                      <input name="id" type="hidden" value={shipment.id} />
-                      <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
-                        Delete Shipment
-                      </SubmitButton>
-                    </form>
-                  </div>
-                </details>
-              ) : null}
+                      <form action={deleteShipmentAction}>
+                        <input name="id" type="hidden" value={shipment.id} />
+                        <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                          Delete Shipment
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </details>
+                ) : null}
               </article>
             );
           })}
