@@ -12,7 +12,11 @@ import { shipmentStatuses } from "@/lib/constants";
 import type { ProductRow, PurchaseOrderRow, ShipmentRow } from "@/lib/database.types";
 import { canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
 import { requirePortalUser } from "@/lib/session";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatEnumLabel } from "@/lib/utils";
+
+function getVisibleShipmentStatus(status: ShipmentRow["arrival_status"]) {
+  return status === "completed" ? "arrived" : status;
+}
 
 export default async function ShipmentsPage() {
   const { supabase, profile } = await requirePortalUser();
@@ -40,34 +44,15 @@ export default async function ShipmentsPage() {
 
       {isAdmin ? (
         <SectionCard
-          description="Create a shipment record tied to a product and optional purchase order."
+          description="Track a container by its ETA, status, and optional purchase order."
           title="Create Shipment"
         >
-          <form action={createShipmentAction} className="grid gap-4 md:grid-cols-3">
+          <form action={createShipmentAction} className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="field-label" htmlFor="container_number">
                 Container Number
               </label>
               <input className="input-field" id="container_number" name="container_number" required type="text" />
-            </div>
-            <div>
-              <label className="field-label" htmlFor="shipment-product">
-                Product
-              </label>
-              <select className="input-field" id="shipment-product" name="product_id" required>
-                <option value="">Select product</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name} ({product.sku})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="field-label" htmlFor="shipment-quantity">
-                Quantity
-              </label>
-              <input className="input-field" id="shipment-quantity" min="1" name="quantity" required type="number" />
             </div>
             <div>
               <label className="field-label" htmlFor="eta">
@@ -77,12 +62,12 @@ export default async function ShipmentsPage() {
             </div>
             <div>
               <label className="field-label" htmlFor="shipment-status">
-                Arrival Status
+                Status
               </label>
-              <select className="input-field" defaultValue="at_sea" id="shipment-status" name="arrival_status">
+              <select className="input-field" defaultValue="scheduled" id="shipment-status" name="arrival_status">
                 {shipmentStatuses.map((status) => (
                   <option key={status} value={status}>
-                    {status.replace("_", " ").toUpperCase()}
+                    {formatEnumLabel(status)}
                   </option>
                 ))}
               </select>
@@ -100,7 +85,7 @@ export default async function ShipmentsPage() {
                 ))}
               </select>
             </div>
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
               <SubmitButton className="btn-primary" pendingLabel="Creating...">
                 Create Shipment
               </SubmitButton>
@@ -113,9 +98,12 @@ export default async function ShipmentsPage() {
         description="Changing a shipment to Arrived automatically moves units from in-transit stock into current stock."
         title="Shipment List"
       >
-        <div className="space-y-4 md:hidden">
-          {shipments.map((shipment) => (
-            <article
+      <div className="space-y-4 md:hidden">
+          {shipments.map((shipment) => {
+            const shipmentStatus = getVisibleShipmentStatus(shipment.arrival_status);
+
+            return (
+              <article
               className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
               key={shipment.id}
             >
@@ -124,19 +112,19 @@ export default async function ShipmentsPage() {
                   <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">Container</p>
                   <p className="mt-1 text-base font-semibold text-slate-950">{shipment.container_number}</p>
                 </div>
-                <StatusBadge value={shipment.arrival_status} />
+                <StatusBadge value={shipmentStatus} />
               </div>
 
               <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Product</p>
                   <p className="mt-1 text-slate-700">
-                    {productMap.get(shipment.product_id)?.name ?? "Unknown product"}
+                    {shipment.product_id ? productMap.get(shipment.product_id)?.name ?? "Unknown product" : "Not specified"}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Quantity</p>
-                  <p className="mt-1 font-semibold text-slate-950">{shipment.quantity}</p>
+                  <p className="mt-1 font-semibold text-slate-950">{shipment.quantity ?? "Not specified"}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETA</p>
@@ -155,10 +143,10 @@ export default async function ShipmentsPage() {
               {canUpdateStatus ? (
                 <form action={updateShipmentStatusAction} className="flex flex-col gap-2">
                   <input name="id" type="hidden" value={shipment.id} />
-                  <select className="input-field py-2" defaultValue={shipment.arrival_status} name="status">
+                  <select className="input-field py-2" defaultValue={shipmentStatus} name="status">
                     {shipmentStatuses.map((status) => (
                       <option key={status} value={status}>
-                        {status.replace("_", " ").toUpperCase()}
+                        {formatEnumLabel(status)}
                       </option>
                     ))}
                   </select>
@@ -195,11 +183,11 @@ export default async function ShipmentsPage() {
                         </label>
                         <select
                           className="input-field"
-                          defaultValue={shipment.product_id}
+                          defaultValue={shipment.product_id ?? ""}
                           id={`product-mobile-${shipment.id}`}
                           name="product_id"
-                          required
                         >
+                          <option value="">Not specified</option>
                           {products.map((product) => (
                             <option key={product.id} value={product.id}>
                               {product.name} ({product.sku})
@@ -213,11 +201,10 @@ export default async function ShipmentsPage() {
                         </label>
                         <input
                           className="input-field"
-                          defaultValue={shipment.quantity}
+                          defaultValue={shipment.quantity ?? ""}
                           id={`quantity-mobile-${shipment.id}`}
                           min="1"
                           name="quantity"
-                          required
                           type="number"
                         />
                       </div>
@@ -235,18 +222,18 @@ export default async function ShipmentsPage() {
                         />
                       </div>
                       <div>
-                        <label className="field-label" htmlFor={`status-mobile-${shipment.id}`}>
-                          Arrival Status
+                          <label className="field-label" htmlFor={`status-mobile-${shipment.id}`}>
+                            Status
                         </label>
                         <select
                           className="input-field"
-                          defaultValue={shipment.arrival_status}
+                          defaultValue={shipmentStatus}
                           id={`status-mobile-${shipment.id}`}
                           name="arrival_status"
                         >
                           {shipmentStatuses.map((status) => (
                             <option key={status} value={status}>
-                              {status.replace("_", " ").toUpperCase()}
+                              {formatEnumLabel(status)}
                             </option>
                           ))}
                         </select>
@@ -285,8 +272,9 @@ export default async function ShipmentsPage() {
                   </div>
                 </details>
               ) : null}
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
 
         <div className="hidden overflow-x-auto md:block">
@@ -298,11 +286,14 @@ export default async function ShipmentsPage() {
                 <th className="pb-3 font-medium">Quantity</th>
                 <th className="pb-3 font-medium">ETA</th>
                 <th className="pb-3 font-medium">Linked PO</th>
-                <th className="pb-3 font-medium">Arrival Status</th>
+                <th className="pb-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
-              {shipments.map((shipment) => (
+              {shipments.map((shipment) => {
+                const shipmentStatus = getVisibleShipmentStatus(shipment.arrival_status);
+
+                return (
                 <tr className="border-b border-slate-100 align-top last:border-b-0" key={shipment.id}>
                   <td className="py-4">
                     <p className="font-medium text-slate-950">{shipment.container_number}</p>
@@ -333,11 +324,11 @@ export default async function ShipmentsPage() {
                               </label>
                               <select
                                 className="input-field"
-                                defaultValue={shipment.product_id}
+                                defaultValue={shipment.product_id ?? ""}
                                 id={`product-${shipment.id}`}
                                 name="product_id"
-                                required
                               >
+                                <option value="">Not specified</option>
                                 {products.map((product) => (
                                   <option key={product.id} value={product.id}>
                                     {product.name} ({product.sku})
@@ -351,11 +342,10 @@ export default async function ShipmentsPage() {
                               </label>
                               <input
                                 className="input-field"
-                                defaultValue={shipment.quantity}
+                                defaultValue={shipment.quantity ?? ""}
                                 id={`quantity-${shipment.id}`}
                                 min="1"
                                 name="quantity"
-                                required
                                 type="number"
                               />
                             </div>
@@ -374,17 +364,17 @@ export default async function ShipmentsPage() {
                             </div>
                             <div>
                               <label className="field-label" htmlFor={`status-${shipment.id}`}>
-                                Arrival Status
+                                Status
                               </label>
                               <select
                                 className="input-field"
-                                defaultValue={shipment.arrival_status}
+                                defaultValue={shipmentStatus}
                                 id={`status-${shipment.id}`}
                                 name="arrival_status"
                               >
                                 {shipmentStatuses.map((status) => (
                                   <option key={status} value={status}>
-                                    {status.replace("_", " ").toUpperCase()}
+                                    {formatEnumLabel(status)}
                                   </option>
                                 ))}
                               </select>
@@ -425,9 +415,9 @@ export default async function ShipmentsPage() {
                     ) : null}
                   </td>
                   <td className="py-4 text-slate-600">
-                    {productMap.get(shipment.product_id)?.name ?? "Unknown product"}
+                    {shipment.product_id ? productMap.get(shipment.product_id)?.name ?? "Unknown product" : "Not specified"}
                   </td>
-                  <td className="py-4 text-slate-950">{shipment.quantity}</td>
+                  <td className="py-4 text-slate-950">{shipment.quantity ?? "Not specified"}</td>
                   <td className="py-4 text-slate-600">{formatDate(shipment.eta)}</td>
                   <td className="py-4 text-slate-600">
                     {shipment.linked_purchase_order_id
@@ -436,14 +426,14 @@ export default async function ShipmentsPage() {
                   </td>
                   <td className="py-4">
                     <div className="space-y-3">
-                      <StatusBadge value={shipment.arrival_status} />
+                      <StatusBadge value={shipmentStatus} />
                       {canUpdateStatus ? (
                         <form action={updateShipmentStatusAction} className="flex flex-col gap-2 lg:flex-row">
                           <input name="id" type="hidden" value={shipment.id} />
-                          <select className="input-field min-w-36 py-2" defaultValue={shipment.arrival_status} name="status">
+                          <select className="input-field min-w-36 py-2" defaultValue={shipmentStatus} name="status">
                             {shipmentStatuses.map((status) => (
                               <option key={status} value={status}>
-                                {status.replace("_", " ").toUpperCase()}
+                                {formatEnumLabel(status)}
                               </option>
                             ))}
                           </select>
@@ -455,7 +445,8 @@ export default async function ShipmentsPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
