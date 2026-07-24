@@ -112,13 +112,17 @@ export default async function ShipmentsPage() {
                 <label className="field-label" htmlFor="etd">
                   ETD
                 </label>
-                <input className="input-field" defaultValue={today} id="etd" name="etd" type="date" />
+                <div className="date-input-wrap">
+                  <input className="input-field" defaultValue={today} id="etd" name="etd" type="date" />
+                </div>
               </div>
               <div className="min-w-0">
                 <label className="field-label" htmlFor="eta">
                   ETA
                 </label>
-                <input className="input-field" defaultValue={today} id="eta" name="eta" required type="date" />
+                <div className="date-input-wrap">
+                  <input className="input-field" defaultValue={today} id="eta" name="eta" required type="date" />
+                </div>
               </div>
               <div className="min-w-0">
                 <label className="field-label" htmlFor="shipment-status">
@@ -228,26 +232,30 @@ export default async function ShipmentsPage() {
                           <label className="field-label" htmlFor={`etd-mobile-${shipment.id}`}>
                             ETD
                           </label>
-                          <input
-                            className="input-field"
-                            defaultValue={shipment.etd ?? ""}
-                            id={`etd-mobile-${shipment.id}`}
-                            name="etd"
-                            type="date"
-                          />
+                          <div className="date-input-wrap">
+                            <input
+                              className="input-field"
+                              defaultValue={shipment.etd ?? ""}
+                              id={`etd-mobile-${shipment.id}`}
+                              name="etd"
+                              type="date"
+                            />
+                          </div>
                         </div>
                         <div>
                           <label className="field-label" htmlFor={`eta-mobile-${shipment.id}`}>
                             ETA
                           </label>
-                          <input
-                            className="input-field"
-                            defaultValue={shipment.eta}
-                            id={`eta-mobile-${shipment.id}`}
-                            name="eta"
-                            required
-                            type="date"
-                          />
+                          <div className="date-input-wrap">
+                            <input
+                              className="input-field"
+                              defaultValue={shipment.eta}
+                              id={`eta-mobile-${shipment.id}`}
+                              name="eta"
+                              required
+                              type="date"
+                            />
+                          </div>
                         </div>
                         <div>
                           <label className="field-label" htmlFor={`status-mobile-${shipment.id}`}>
@@ -348,26 +356,30 @@ export default async function ShipmentsPage() {
                               <label className="field-label" htmlFor={`etd-${shipment.id}`}>
                                 ETD
                               </label>
-                              <input
-                                className="input-field"
-                                defaultValue={shipment.etd ?? ""}
-                                id={`etd-${shipment.id}`}
-                                name="etd"
-                                type="date"
-                              />
+                              <div className="date-input-wrap">
+                                <input
+                                  className="input-field"
+                                  defaultValue={shipment.etd ?? ""}
+                                  id={`etd-${shipment.id}`}
+                                  name="etd"
+                                  type="date"
+                                />
+                              </div>
                             </div>
                             <div>
                               <label className="field-label" htmlFor={`eta-${shipment.id}`}>
                                 ETA
                               </label>
-                              <input
-                                className="input-field"
-                                defaultValue={shipment.eta}
-                                id={`eta-${shipment.id}`}
-                                name="eta"
-                                required
-                                type="date"
-                              />
+                              <div className="date-input-wrap">
+                                <input
+                                  className="input-field"
+                                  defaultValue={shipment.eta}
+                                  id={`eta-${shipment.id}`}
+                                  name="eta"
+                                  required
+                                  type="date"
+                                />
+                              </div>
                             </div>
                             <div>
                               <label className="field-label" htmlFor={`status-${shipment.id}`}>

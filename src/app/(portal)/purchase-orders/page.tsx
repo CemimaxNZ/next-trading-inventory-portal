@@ -142,14 +142,16 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                 <label className="field-label" htmlFor="order_date">
                   Order Date
                 </label>
-                <input
-                  className="input-field"
-                  defaultValue={today}
-                  id="order_date"
-                  name="order_date"
-                  required
-                  type="date"
-                />
+                <div className="date-input-wrap">
+                  <input
+                    className="input-field"
+                    defaultValue={today}
+                    id="order_date"
+                    name="order_date"
+                    required
+                    type="date"
+                  />
+                </div>
               </div>
               <div className="min-w-0">
                 <label className="field-label" htmlFor="po-status">
@@ -307,14 +309,16 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                             <label className="field-label" htmlFor={`po-date-mobile-${purchaseOrder.id}`}>
                               Order Date
                             </label>
-                            <input
-                              className="input-field"
-                              defaultValue={purchaseOrder.order_date}
-                              id={`po-date-mobile-${purchaseOrder.id}`}
-                              name="order_date"
-                              required
-                              type="date"
-                            />
+                            <div className="date-input-wrap">
+                              <input
+                                className="input-field"
+                                defaultValue={purchaseOrder.order_date}
+                                id={`po-date-mobile-${purchaseOrder.id}`}
+                                name="order_date"
+                                required
+                                type="date"
+                              />
+                            </div>
                           </div>
                           <div>
                             <label className="field-label" htmlFor={`po-status-mobile-${purchaseOrder.id}`}>
@@ -439,14 +443,16 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                                   <label className="field-label" htmlFor={`po-date-${purchaseOrder.id}`}>
                                     Order Date
                                   </label>
-                                  <input
-                                    className="input-field"
-                                    defaultValue={purchaseOrder.order_date}
-                                    id={`po-date-${purchaseOrder.id}`}
-                                    name="order_date"
-                                    required
-                                    type="date"
-                                  />
+                                  <div className="date-input-wrap">
+                                    <input
+                                      className="input-field"
+                                      defaultValue={purchaseOrder.order_date}
+                                      id={`po-date-${purchaseOrder.id}`}
+                                      name="order_date"
+                                      required
+                                      type="date"
+                                    />
+                                  </div>
                                 </div>
                                 <div>
                                   <label className="field-label" htmlFor={`po-status-edit-${purchaseOrder.id}`}>
