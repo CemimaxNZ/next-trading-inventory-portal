@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ProductCategoryNav } from "@/components/products/product-category-nav";
 import { PageHeader } from "@/components/ui/page-header";
@@ -43,7 +44,18 @@ export default async function ProductsPage() {
                 href={`/products/${category}`}
                 key={category}
               >
-                <div className="h-2 w-14 rounded-full bg-brand-400" />
+                <div className="flex items-start justify-between gap-4">
+                  <div className="h-2 w-14 rounded-full bg-brand-400" />
+                  {category === "cemimax" ? (
+                    <Image
+                      alt="Cemimax logo"
+                      className="h-auto w-32 shrink-0 object-contain sm:w-36"
+                      height={299}
+                      src="/brand/cemimax-logo.png"
+                      width={752}
+                    />
+                  ) : null}
+                </div>
                 <h3 className="mt-5 text-xl font-semibold text-slate-950">
                   {productCategoryMeta[category].label}
                 </h3>

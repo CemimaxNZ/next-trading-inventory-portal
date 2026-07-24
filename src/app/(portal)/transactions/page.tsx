@@ -1,3 +1,5 @@
+import { clearInventoryTransactionsAction } from "@/app/actions/transactions";
+import { SubmitButton } from "@/components/forms/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -6,11 +8,12 @@ import type {
   ProductRow,
   ProfileRow,
 } from "@/lib/database.types";
+import { canManageUsers } from "@/lib/permissions";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatSignedQuantity } from "@/lib/utils";
 
 export default async function TransactionsPage() {
-  const { supabase } = await requirePortalUser();
+  const { supabase, profile } = await requirePortalUser();
   const [{ data: transactionsData }, { data: productsData }, { data: profilesData }] =
     await Promise.all([
       supabase.from("inventory_transactions").select("*").order("created_at", { ascending: false }),
@@ -23,6 +26,7 @@ export default async function TransactionsPage() {
   const profiles = (profilesData ?? []) as ProfileRow[];
   const productMap = new Map(products.map((product) => [product.id, product]));
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+  const isAdmin = canManageUsers(profile.role);
 
   return (
     <>
@@ -35,6 +39,19 @@ export default async function TransactionsPage() {
         description="This ledger includes automated arrivals and manual adjustments."
         title="Transaction History"
       >
+        {isAdmin ? (
+          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 md:flex-row md:items-center md:justify-between">
+            <p>
+              Need a clean start? Clear the current transaction history to remove the seeded sample records.
+            </p>
+            <form action={clearInventoryTransactionsAction}>
+              <SubmitButton className="btn-danger whitespace-nowrap" pendingLabel="Clearing...">
+                Clear Transaction History
+              </SubmitButton>
+            </form>
+          </div>
+        ) : null}
+
         <div className="space-y-4 md:hidden">
           {transactions.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
