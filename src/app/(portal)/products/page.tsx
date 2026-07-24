@@ -37,6 +37,10 @@ export default async function ProductsPage() {
             const lowStockCount = categoryProducts.filter(
               (product) => product.current_stock <= product.low_stock_warning_level,
             ).length;
+            const logoSrc =
+              category === "cemimax" ? "/brand/cemimax-logo.png" : "/brand/next-logo-black.png";
+            const logoAlt = category === "cemimax" ? "Cemimax logo" : "NEXT logo";
+            const logoWidthClass = category === "cemimax" ? "w-32 sm:w-36" : "w-36 sm:w-40";
 
             return (
               <Link
@@ -46,15 +50,15 @@ export default async function ProductsPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="h-2 w-14 rounded-full bg-brand-400" />
-                  {category === "cemimax" ? (
+                  <div className="flex h-16 w-40 shrink-0 items-start justify-center">
                     <Image
-                      alt="Cemimax logo"
-                      className="h-auto w-32 shrink-0 object-contain sm:w-36"
-                      height={299}
-                      src="/brand/cemimax-logo.png"
-                      width={752}
+                      alt={logoAlt}
+                      className={`h-auto shrink-0 object-contain ${logoWidthClass}`}
+                      height={category === "cemimax" ? 299 : 444}
+                      src={logoSrc}
+                      width={category === "cemimax" ? 752 : 1817}
                     />
-                  ) : null}
+                  </div>
                 </div>
                 <h3 className="mt-5 text-xl font-semibold text-slate-950">
                   {productCategoryMeta[category].label}

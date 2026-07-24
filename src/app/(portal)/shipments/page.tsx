@@ -100,26 +100,26 @@ export default async function ShipmentsPage() {
           description="Track a container by its ETD, ETA, status, and one or more linked purchase orders."
           title="Create Shipment"
         >
-          <form action={createShipmentAction} className="grid gap-4 md:grid-cols-2">
-            <div>
+          <form action={createShipmentAction} className="grid gap-4 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))]">
+            <div className="min-w-0">
               <label className="field-label" htmlFor="container_number">
                 Container Number
               </label>
               <input className="input-field" id="container_number" name="container_number" required type="text" />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="field-label" htmlFor="etd">
                 ETD
               </label>
               <input className="input-field" defaultValue={today} id="etd" name="etd" type="date" />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="field-label" htmlFor="eta">
                 ETA
               </label>
               <input className="input-field" defaultValue={today} id="eta" name="eta" required type="date" />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="field-label" htmlFor="shipment-status">
                 Status
               </label>
@@ -131,7 +131,7 @@ export default async function ShipmentsPage() {
                 ))}
               </select>
             </div>
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 xl:col-span-4">
               <ShipmentPurchaseOrderPicker
                 helperText="Search and add multiple purchase orders for the same shipment."
                 inputName="linked_purchase_order_ids"
@@ -140,7 +140,7 @@ export default async function ShipmentsPage() {
                 orders={createOrderOptions}
               />
             </div>
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 xl:col-span-4">
               <SubmitButton className="btn-primary" pendingLabel="Creating...">
                 Create Shipment
               </SubmitButton>

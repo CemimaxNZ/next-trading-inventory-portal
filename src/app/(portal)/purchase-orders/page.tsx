@@ -125,26 +125,26 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
           title="Create Purchase Order"
         >
           <form action={createPurchaseOrderAction} className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))]">
+              <div className="min-w-0">
                 <label className="field-label" htmlFor="po_number">
                   PO Number
                 </label>
                 <input className="input-field" id="po_number" name="po_number" required type="text" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="field-label" htmlFor="supplier">
                   Supplier
                 </label>
                 <input className="input-field" id="supplier" name="supplier" required type="text" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="field-label" htmlFor="order_date">
                   Order Date
                 </label>
                 <input className="input-field" defaultValue={today} id="order_date" name="order_date" required type="date" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="field-label" htmlFor="po-status">
                   Status
                 </label>
