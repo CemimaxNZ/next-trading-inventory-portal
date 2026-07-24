@@ -3,24 +3,39 @@
 import { revalidatePath } from "next/cache";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { requirePortalUser } from "@/lib/session";
+import {
+  deriveInternalEmailFromUsername,
+  deriveUsernameFromIdentifier,
+  isEmailLike,
+} from "@/lib/user-identity";
 import { userCreateSchema, userRoleSchema } from "@/lib/validators";
 
 export async function createUserAction(formData: FormData) {
   await requirePortalUser("admin");
   const adminClient = createAdminSupabaseClient();
   const parsed = userCreateSchema.parse({
-    email: String(formData.get("email") ?? ""),
+    identifier: String(formData.get("identifier") ?? ""),
     password: String(formData.get("password") ?? ""),
     full_name: String(formData.get("full_name") ?? ""),
     role: String(formData.get("role") ?? "viewer"),
   });
 
+  const username = deriveUsernameFromIdentifier(parsed.identifier);
+  const email = isEmailLike(parsed.identifier)
+    ? parsed.identifier.trim().toLowerCase()
+    : deriveInternalEmailFromUsername(username);
+
+  if (!username || !email) {
+    throw new Error("Please enter a valid email or username.");
+  }
+
   const { data, error } = await adminClient.auth.admin.createUser({
-    email: parsed.email,
+    email,
     password: parsed.password,
     email_confirm: true,
     user_metadata: {
       full_name: parsed.full_name,
+      username,
     },
   });
 
@@ -30,8 +45,9 @@ export async function createUserAction(formData: FormData) {
 
   const { error: profileError } = await adminClient.from("profiles").upsert({
     id: data.user.id,
-    email: parsed.email,
+    email,
     full_name: parsed.full_name,
+    username,
     role: parsed.role,
   });
 

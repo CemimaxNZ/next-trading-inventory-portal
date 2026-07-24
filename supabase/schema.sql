@@ -16,6 +16,7 @@ create type public.inventory_transaction_type as enum (
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text unique,
+  username text unique,
   full_name text not null,
   role public.app_role not null default 'viewer',
   created_at timestamptz not null default timezone('utc', now()),

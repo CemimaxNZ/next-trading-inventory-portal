@@ -3,7 +3,7 @@ import { appRoles, purchaseOrderStatuses, shipmentStatuses } from "@/lib/constan
 import { productCategories } from "@/lib/products";
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  identifier: z.string().trim().min(2),
   password: z.string().min(8),
 });
 
@@ -85,7 +85,7 @@ export const stockAdjustmentSchema = z.object({
 });
 
 export const userCreateSchema = z.object({
-  email: z.string().email(),
+  identifier: z.string().trim().min(2),
   password: z.string().min(8),
   full_name: z.string().trim().min(2),
   role: z.enum(appRoles),

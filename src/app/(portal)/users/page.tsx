@@ -12,6 +12,7 @@ import { canManageUsers } from "@/lib/permissions";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatEnumLabel } from "@/lib/utils";
+import { PasswordField } from "@/components/forms/password-field";
 
 export default async function UsersPage() {
   const { profile: currentProfile } = await requirePortalUser("admin");
@@ -51,17 +52,21 @@ export default async function UsersPage() {
               <input className="input-field" id="full_name" name="full_name" required type="text" />
             </div>
             <div>
-              <label className="field-label" htmlFor="user-email">
-                Email
+              <label className="field-label" htmlFor="user-identifier">
+                Email/User Name
               </label>
-              <input className="input-field" id="user-email" name="email" required type="email" />
+              <input
+                autoComplete="username"
+                className="input-field"
+                id="user-identifier"
+                name="identifier"
+                placeholder="team@nexttrading.local or haifang"
+                required
+                spellCheck={false}
+                type="text"
+              />
             </div>
-            <div>
-              <label className="field-label" htmlFor="user-password">
-                Password
-              </label>
-              <input className="input-field" id="user-password" name="password" required type="password" />
-            </div>
+            <PasswordField id="user-password" name="password" />
             <div>
               <label className="field-label" htmlFor="role">
                 Role

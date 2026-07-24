@@ -18,27 +18,30 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
-          id: string;
-          email: string | null;
-          full_name: string;
-          role: Database["public"]["Enums"]["app_role"];
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          email?: string | null;
-          full_name: string;
-          role?: Database["public"]["Enums"]["app_role"];
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          email?: string | null;
-          full_name?: string;
-          role?: Database["public"]["Enums"]["app_role"];
-          updated_at?: string;
-        };
+        id: string;
+        email: string | null;
+        username: string | null;
+        full_name: string;
+        role: Database["public"]["Enums"]["app_role"];
+        created_at: string;
+        updated_at: string;
+      };
+      Insert: {
+        id: string;
+        email?: string | null;
+        username?: string | null;
+        full_name: string;
+        role?: Database["public"]["Enums"]["app_role"];
+        created_at?: string;
+        updated_at?: string;
+      };
+      Update: {
+        email?: string | null;
+        username?: string | null;
+        full_name?: string;
+        role?: Database["public"]["Enums"]["app_role"];
+        updated_at?: string;
+      };
         Relationships: [];
       };
       products: {

@@ -4,16 +4,23 @@ import { hasAtLeastRole } from "@/lib/permissions";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-function buildFallbackProfile(user: { id: string; email?: string | null; user_metadata?: { full_name?: unknown } }) {
+function buildFallbackProfile(
+  user: { id: string; email?: string | null; user_metadata?: { full_name?: unknown; username?: unknown } },
+) {
   const fullName =
     typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name.trim().length > 0
       ? user.user_metadata.full_name.trim()
       : (user.email?.split("@")[0] ?? "Portal User");
+  const username =
+    typeof user.user_metadata?.username === "string" && user.user_metadata.username.trim().length > 0
+      ? user.user_metadata.username.trim().toLowerCase()
+      : (user.email?.split("@")[0]?.toLowerCase() ?? null);
 
   return {
     id: user.id,
     email: user.email ?? null,
     full_name: fullName,
+    username,
     role: "viewer" as const,
   };
 }
