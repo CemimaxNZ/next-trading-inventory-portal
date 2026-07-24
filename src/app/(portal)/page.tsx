@@ -6,9 +6,15 @@ import type {
   InventoryTransactionRow,
   ProductRow,
   ProfileRow,
-  PurchaseOrderRow,
+  PurchaseOrderItemRow,
   ShipmentRow,
 } from "@/lib/database.types";
+import {
+  buildLegacyPurchaseOrderItems,
+  buildProductInTransitMap,
+  type LegacyPurchaseOrderLike,
+  type PurchaseOrderItemLike,
+} from "@/lib/purchase-orders";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatSignedQuantity } from "@/lib/utils";
 
@@ -18,22 +24,32 @@ export default async function DashboardPage() {
   const [
     { data: productsData },
     { data: purchaseOrdersData },
+    { data: purchaseOrderItemsData, error: purchaseOrderItemsError },
     { data: shipmentsData },
     { data: transactionsData },
     { data: profilesData },
   ] = await Promise.all([
     supabase.from("products").select("*").order("name"),
     supabase.from("purchase_orders").select("*"),
+    supabase.from("purchase_order_items").select("purchase_order_id, product_id, quantity"),
     supabase.from("shipments").select("*"),
     supabase.from("inventory_transactions").select("*").order("created_at", { ascending: false }).limit(6),
     supabase.from("profiles").select("*"),
   ]);
 
   const products = (productsData ?? []) as ProductRow[];
-  const purchaseOrders = (purchaseOrdersData ?? []) as PurchaseOrderRow[];
+  const purchaseOrders = (purchaseOrdersData ?? []) as LegacyPurchaseOrderLike[];
+  const purchaseOrderItems = (purchaseOrderItemsData ?? []) as PurchaseOrderItemRow[];
   const shipments = (shipmentsData ?? []) as ShipmentRow[];
   const transactions = (transactionsData ?? []) as InventoryTransactionRow[];
   const profiles = (profilesData ?? []) as ProfileRow[];
+  const fallbackItems: PurchaseOrderItemLike[] = purchaseOrderItemsError
+    ? purchaseOrders.flatMap((purchaseOrder) => buildLegacyPurchaseOrderItems(purchaseOrder))
+    : purchaseOrderItems;
+  const inTransitByProductId = buildProductInTransitMap(
+    purchaseOrders,
+    fallbackItems,
+  );
 
   const productMap = new Map(products.map((product) => [product.id, product]));
   const profileMap = new Map(profiles.map((entry) => [entry.id, entry]));
@@ -41,7 +57,7 @@ export default async function DashboardPage() {
     (product) => product.current_stock <= product.low_stock_warning_level,
   );
   const inventoryTotal = products.reduce((sum, product) => sum + product.current_stock, 0);
-  const inTransitTotal = products.reduce((sum, product) => sum + product.in_transit_stock, 0);
+  const inTransitTotal = [...inTransitByProductId.values()].reduce((sum, quantity) => sum + quantity, 0);
 
   return (
     <>

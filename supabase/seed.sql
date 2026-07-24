@@ -25,7 +25,7 @@ insert into public.purchase_orders (
 values
   ('40df09b8-57f4-4de1-b81e-5bb4ae61ebc5', 'PO-2026-1001', 'Harbour Industrial Supply', date '2026-07-01', 'shipped'),
   ('56cad8ab-1bb3-4c1f-b8ad-7d943f202556', 'PO-2026-1002', 'Pacific Consumables', date '2026-07-04', 'arrived'),
-  ('87f9526d-3750-4e9a-8819-bfb1b170fa8c', 'PO-2026-1003', 'RelayCore Electronics', date '2026-07-07', 'ready')
+  ('87f9526d-3750-4e9a-8819-bfb1b170fa8c', 'PO-2026-1003', 'RelayCore Electronics', date '2026-07-07', 'paid')
 on conflict (id) do nothing;
 
 insert into public.purchase_order_items (

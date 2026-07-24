@@ -8,8 +8,20 @@ import { ProductCategoryNav } from "@/components/products/product-category-nav";
 import { ProductCategoryList } from "@/components/products/product-category-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
-import type { ProductCategory, ProductRow } from "@/lib/database.types";
+import type {
+  ProductCategory,
+  ProductRow,
+  PurchaseOrderItemRow,
+  PurchaseOrderRow,
+} from "@/lib/database.types";
 import { canManageProducts } from "@/lib/permissions";
+import {
+  applyComputedInTransitToProducts,
+  buildLegacyPurchaseOrderItems,
+  buildProductInTransitMap,
+  type LegacyPurchaseOrderLike,
+  type PurchaseOrderItemLike,
+} from "@/lib/purchase-orders";
 import { productCategoryMeta } from "@/lib/products";
 import { requirePortalUser } from "@/lib/session";
 
@@ -20,12 +32,30 @@ type ProductCategoryPageProps = {
 
 export async function ProductCategoryPage({ category, error }: ProductCategoryPageProps) {
   const { supabase, profile } = await requirePortalUser();
-  const { data } = await supabase
-    .from("products")
-    .select("*")
-    .eq("category", category)
-    .order("name");
-  const products = (data ?? []) as ProductRow[];
+  const [
+    { data: productsData },
+    { data: purchaseOrdersData },
+    { data: orderItemsData, error: orderItemsError },
+  ] = await Promise.all([
+    supabase.from("products").select("*").eq("category", category).order("name"),
+    supabase.from("purchase_orders").select("id, status"),
+    supabase.from("purchase_order_items").select("purchase_order_id, product_id, quantity"),
+  ]);
+
+  const products = (productsData ?? []) as ProductRow[];
+  const purchaseOrders = (purchaseOrdersData ?? []) as LegacyPurchaseOrderLike[];
+  const orderItems = (orderItemsData ?? []) as PurchaseOrderItemRow[];
+  const fallbackItems: PurchaseOrderItemLike[] = orderItemsError
+    ? purchaseOrders.flatMap((purchaseOrder) => buildLegacyPurchaseOrderItems(purchaseOrder))
+    : orderItems;
+  const inTransitByProductId = buildProductInTransitMap(
+    purchaseOrders as Pick<PurchaseOrderRow, "id" | "status">[],
+    fallbackItems,
+  );
+  const productsWithComputedInTransit = applyComputedInTransitToProducts(
+    products,
+    inTransitByProductId,
+  );
   const isAdmin = canManageProducts(profile.role);
   const meta = productCategoryMeta[category];
 
@@ -116,7 +146,7 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
           category={category}
           deleteProductAction={deleteProductAction}
           isAdmin={isAdmin}
-          products={products}
+          products={productsWithComputedInTransit}
           updateProductAction={updateProductAction}
         />
       </SectionCard>

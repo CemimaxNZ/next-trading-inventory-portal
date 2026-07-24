@@ -9,9 +9,12 @@ import type {
   PurchaseOrderItemRow,
   PurchaseOrderRow,
 } from "@/lib/database.types";
+import {
+  countsTowardCurrentStock,
+  countsTowardInTransit,
+} from "@/lib/purchase-orders";
 import { requirePortalUser } from "@/lib/session";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { rpcMutation } from "@/lib/supabase/mutations";
 import {
   purchaseOrderSchema,
   purchaseOrderStatusSchema,
@@ -109,27 +112,6 @@ function redirectToPurchaseOrdersError(error: unknown) {
   redirect(`/purchase-orders?error=${encodeURIComponent(message)}`);
 }
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
-    return error.message;
-  }
-
-  return "";
-}
-
-function isMissingRpcFunction(error: unknown, functionName: string) {
-  const message = getErrorMessage(error);
-
-  return Boolean(
-    message.includes(`Could not find the function public.${functionName}`)
-    || (message.includes("schema cache") && message.includes(functionName)),
-  );
-}
-
 function isMissingPurchaseOrderColumnError(error: unknown) {
   const message = getErrorMessage(error);
 
@@ -149,10 +131,28 @@ function isMissingPurchaseOrderItemsTableError(error: unknown) {
   );
 }
 
-function buildArrivedItemsMap(status: PurchaseOrderRow["status"], items: PurchaseOrderItemInput[]) {
-  const quantities = new Map<string, number>();
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
 
-  if (status !== "arrived") {
+  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+
+  return "";
+}
+
+function buildTrackedItemsMap(
+  status: PurchaseOrderRow["status"],
+  items: PurchaseOrderItemInput[],
+  mode: "current" | "in_transit",
+) {
+  const quantities = new Map<string, number>();
+  const shouldTrack =
+    mode === "current" ? countsTowardCurrentStock(status) : countsTowardInTransit(status);
+
+  if (!shouldTrack) {
     return quantities;
   }
 
@@ -187,6 +187,76 @@ function getLegacyItemsFromPurchaseOrder(order: LegacyPurchaseOrderRow | null) {
       quantity: order.quantity,
     },
   ];
+}
+
+async function buildExistingInTransitTotals({
+  adminClient,
+  purchaseOrderId,
+  productIds,
+}: {
+  adminClient: ReturnType<typeof createAdminSupabaseClient>;
+  purchaseOrderId: string;
+  productIds: string[];
+}) {
+  const quantities = new Map<string, number>();
+
+  if (productIds.length === 0) {
+    return quantities;
+  }
+
+  const { data: orderItemsData, error: orderItemsError } = await adminClient
+    .from("purchase_order_items")
+    .select("purchase_order_id, product_id, quantity")
+    .in("product_id", productIds);
+
+  if (orderItemsError) {
+    if (isMissingPurchaseOrderItemsTableError(orderItemsError)) {
+      return quantities;
+    }
+
+    throw new Error(orderItemsError.message);
+  }
+
+  const orderItems = (orderItemsData ?? []) as PurchaseOrderItemRow[];
+  const linkedOrderIds = [...new Set(orderItems.map((item) => item.purchase_order_id))].filter(
+    (id) => id !== purchaseOrderId,
+  );
+
+  if (linkedOrderIds.length === 0) {
+    return quantities;
+  }
+
+  const { data: ordersData, error: ordersError } = await adminClient
+    .from("purchase_orders")
+    .select("id, status")
+    .in("id", linkedOrderIds);
+
+  if (ordersError) {
+    throw new Error(ordersError.message);
+  }
+
+  const orderStatusMap = new Map(
+    ((ordersData ?? []) as Pick<PurchaseOrderRow, "id" | "status">[]).map((order) => [
+      order.id,
+      order.status,
+    ]),
+  );
+
+  for (const item of orderItems) {
+    if (item.purchase_order_id === purchaseOrderId) {
+      continue;
+    }
+
+    const status = orderStatusMap.get(item.purchase_order_id);
+
+    if (!status || !countsTowardInTransit(status)) {
+      continue;
+    }
+
+    quantities.set(item.product_id, (quantities.get(item.product_id) ?? 0) + item.quantity);
+  }
+
+  return quantities;
 }
 
 async function loadPurchaseOrderItemsWithoutRpc({
@@ -240,9 +310,18 @@ async function reconcilePurchaseOrderInventoryWithoutRpc({
   newItems: PurchaseOrderItemInput[];
   performedBy: string;
 }) {
-  const oldQuantities = buildArrivedItemsMap(oldStatus, oldItems);
-  const newQuantities = buildArrivedItemsMap(newStatus, newItems);
-  const productIds = [...new Set([...oldQuantities.keys(), ...newQuantities.keys()])];
+  const oldCurrentQuantities = buildTrackedItemsMap(oldStatus, oldItems, "current");
+  const newCurrentQuantities = buildTrackedItemsMap(newStatus, newItems, "current");
+  const oldInTransitQuantities = buildTrackedItemsMap(oldStatus, oldItems, "in_transit");
+  const newInTransitQuantities = buildTrackedItemsMap(newStatus, newItems, "in_transit");
+  const productIds = [
+    ...new Set([
+      ...oldCurrentQuantities.keys(),
+      ...newCurrentQuantities.keys(),
+      ...oldInTransitQuantities.keys(),
+      ...newInTransitQuantities.keys(),
+    ]),
+  ];
 
   if (productIds.length === 0) {
     return;
@@ -251,9 +330,12 @@ async function reconcilePurchaseOrderInventoryWithoutRpc({
   const deltas = productIds
     .map((productId) => ({
       productId,
-      delta: (newQuantities.get(productId) ?? 0) - (oldQuantities.get(productId) ?? 0),
+      currentDelta:
+        (newCurrentQuantities.get(productId) ?? 0) - (oldCurrentQuantities.get(productId) ?? 0),
+      inTransitDelta:
+        (newInTransitQuantities.get(productId) ?? 0) - (oldInTransitQuantities.get(productId) ?? 0),
     }))
-    .filter(({ delta }) => delta !== 0);
+    .filter(({ currentDelta, inTransitDelta }) => currentDelta !== 0 || inTransitDelta !== 0);
 
   if (deltas.length === 0) {
     return;
@@ -270,25 +352,38 @@ async function reconcilePurchaseOrderInventoryWithoutRpc({
 
   const products = (productsData ?? []) as ProductRow[];
   const productMap = new Map(products.map((product) => [product.id, product]));
+  const existingInTransitTotals = await buildExistingInTransitTotals({
+    adminClient,
+    purchaseOrderId,
+    productIds: deltas.map(({ productId }) => productId),
+  });
+  const nextTrackedInTransit = buildTrackedItemsMap(newStatus, newItems, "in_transit");
   const updatedAt = new Date().toISOString();
 
-  for (const { productId, delta } of deltas) {
+  for (const { productId, currentDelta } of deltas) {
     const product = productMap.get(productId);
 
     if (!product) {
       throw new Error(`Product ${productId} not found`);
     }
 
-    const nextCurrentStock = product.current_stock + delta;
+    const nextCurrentStock = product.current_stock + currentDelta;
+    const nextInTransitStock =
+      (existingInTransitTotals.get(productId) ?? 0) + (nextTrackedInTransit.get(productId) ?? 0);
 
     if (nextCurrentStock < 0) {
       throw new Error(`Current stock cannot become negative for product ${productId}`);
+    }
+
+    if (nextInTransitStock < 0) {
+      throw new Error(`In transit stock cannot become negative for product ${productId}`);
     }
 
     const { error: productUpdateError } = await adminClient
       .from("products")
       .update({
         current_stock: nextCurrentStock,
+        in_transit_stock: nextInTransitStock,
         updated_at: updatedAt,
       })
       .eq("id", productId);
@@ -298,18 +393,26 @@ async function reconcilePurchaseOrderInventoryWithoutRpc({
     }
   }
 
-  const transactionsToInsert = deltas.map(({ productId, delta }) => ({
-    product_id: productId,
-    quantity: delta,
-    type: (delta > 0 ? "purchase_order_arrived" : "purchase_order_reversed") as InventoryTransactionRow["type"],
-    reason:
-      delta > 0
-        ? `PO ${newPoNumber ?? oldPoNumber ?? purchaseOrderId} marked as arrived`
-        : `PO ${oldPoNumber ?? newPoNumber ?? purchaseOrderId} arrival reversed`,
-    reference_table: "purchase_orders",
-    reference_id: purchaseOrderId,
-    performed_by: performedBy,
-  }));
+  const transactionsToInsert = deltas
+    .filter(({ currentDelta }) => currentDelta !== 0)
+    .map(({ productId, currentDelta }) => ({
+      product_id: productId,
+      quantity: currentDelta,
+      type: (
+        currentDelta > 0 ? "purchase_order_arrived" : "purchase_order_reversed"
+      ) as InventoryTransactionRow["type"],
+      reason:
+        currentDelta > 0
+          ? `PO ${newPoNumber ?? oldPoNumber ?? purchaseOrderId} marked as arrived`
+          : `PO ${oldPoNumber ?? newPoNumber ?? purchaseOrderId} arrival reversed`,
+      reference_table: "purchase_orders",
+      reference_id: purchaseOrderId,
+      performed_by: performedBy,
+    }));
+
+  if (transactionsToInsert.length === 0) {
+    return;
+  }
 
   const { error: transactionInsertError } = await adminClient
     .from("inventory_transactions")
@@ -543,6 +646,63 @@ async function savePurchaseOrderWithoutRpc({
   return savedOrder;
 }
 
+async function updatePurchaseOrderStatusWithoutRpc({
+  purchaseOrderId,
+  status,
+  performedBy,
+}: {
+  purchaseOrderId: string;
+  status: PurchaseOrderRow["status"];
+  performedBy: string;
+}) {
+  const adminClient = createAdminSupabaseClient();
+  const updatedAt = new Date().toISOString();
+  const { data: orderData, error: orderError } = await adminClient
+    .from("purchase_orders")
+    .select("*")
+    .eq("id", purchaseOrderId)
+    .maybeSingle();
+
+  if (orderError) {
+    throw new Error(orderError.message);
+  }
+
+  const purchaseOrder = orderData as LegacyPurchaseOrderRow | null;
+
+  if (!purchaseOrder) {
+    throw new Error(`Purchase order ${purchaseOrderId} not found`);
+  }
+
+  const orderItems = await loadPurchaseOrderItemsWithoutRpc({
+    adminClient,
+    purchaseOrder,
+  });
+
+  await reconcilePurchaseOrderInventoryWithoutRpc({
+    adminClient,
+    purchaseOrderId: purchaseOrder.id,
+    oldPoNumber: purchaseOrder.po_number,
+    newPoNumber: purchaseOrder.po_number,
+    oldStatus: purchaseOrder.status,
+    newStatus: status,
+    oldItems: orderItems,
+    newItems: orderItems,
+    performedBy,
+  });
+
+  const { error: updateError } = await adminClient
+    .from("purchase_orders")
+    .update({
+      status,
+      updated_at: updatedAt,
+    })
+    .eq("id", purchaseOrder.id);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+}
+
 async function deletePurchaseOrderWithoutRpc({
   purchaseOrderId,
   performedBy,
@@ -592,8 +752,7 @@ async function deletePurchaseOrderWithoutRpc({
 }
 
 export async function createPurchaseOrderAction(formData: FormData) {
-  const { supabase, profile } = await requirePortalUser("admin");
-  const runRpc = rpcMutation(supabase);
+  const { profile } = await requirePortalUser("admin");
 
   try {
     const parsed = purchaseOrderSchema.parse({
@@ -604,36 +763,11 @@ export async function createPurchaseOrderAction(formData: FormData) {
       items: extractPurchaseOrderItems(formData),
     });
 
-    try {
-      const { error } = await runRpc("save_purchase_order", {
-        p_po_number: parsed.po_number,
-        p_supplier: parsed.supplier,
-        p_order_date: parsed.order_date,
-        p_status: parsed.status,
-        p_items: parsed.items,
-        p_created_by: profile.id,
-      });
-
-      if (isMissingRpcFunction(error, "save_purchase_order")) {
-        await savePurchaseOrderWithoutRpc({
-          payload: parsed,
-          createdBy: profile.id,
-          performedBy: profile.id,
-        });
-      } else if (error) {
-        throw new Error(error.message);
-      }
-    } catch (error) {
-      if (isMissingRpcFunction(error, "save_purchase_order")) {
-        await savePurchaseOrderWithoutRpc({
-          payload: parsed,
-          createdBy: profile.id,
-          performedBy: profile.id,
-        });
-      } else {
-        throw error;
-      }
-    }
+    await savePurchaseOrderWithoutRpc({
+      payload: parsed,
+      createdBy: profile.id,
+      performedBy: profile.id,
+    });
 
     revalidatePurchaseOrderPaths();
   } catch (error) {
@@ -642,8 +776,7 @@ export async function createPurchaseOrderAction(formData: FormData) {
 }
 
 export async function updatePurchaseOrderAction(formData: FormData) {
-  const { supabase, profile } = await requirePortalUser("admin");
-  const runRpc = rpcMutation(supabase);
+  const { profile } = await requirePortalUser("admin");
 
   try {
     const id = String(formData.get("id") ?? "");
@@ -655,38 +788,12 @@ export async function updatePurchaseOrderAction(formData: FormData) {
       items: extractPurchaseOrderItems(formData),
     });
 
-    try {
-      const { error } = await runRpc("save_purchase_order", {
-        p_purchase_order_id: id,
-        p_po_number: parsed.po_number,
-        p_supplier: parsed.supplier,
-        p_order_date: parsed.order_date,
-        p_status: parsed.status,
-        p_items: parsed.items,
-      });
-
-      if (isMissingRpcFunction(error, "save_purchase_order")) {
-        await savePurchaseOrderWithoutRpc({
-          purchaseOrderId: id,
-          payload: parsed,
-          createdBy: profile.id,
-          performedBy: profile.id,
-        });
-      } else if (error) {
-        throw new Error(error.message);
-      }
-    } catch (error) {
-      if (isMissingRpcFunction(error, "save_purchase_order")) {
-        await savePurchaseOrderWithoutRpc({
-          purchaseOrderId: id,
-          payload: parsed,
-          createdBy: profile.id,
-          performedBy: profile.id,
-        });
-      } else {
-        throw error;
-      }
-    }
+    await savePurchaseOrderWithoutRpc({
+      purchaseOrderId: id,
+      payload: parsed,
+      createdBy: profile.id,
+      performedBy: profile.id,
+    });
 
     revalidatePurchaseOrderPaths();
   } catch (error) {
@@ -695,8 +802,7 @@ export async function updatePurchaseOrderAction(formData: FormData) {
 }
 
 export async function updatePurchaseOrderStatusAction(formData: FormData) {
-  const { supabase } = await requirePortalUser("operator");
-  const runRpc = rpcMutation(supabase);
+  const { profile } = await requirePortalUser("operator");
 
   try {
     const parsed = purchaseOrderStatusSchema.parse({
@@ -704,14 +810,11 @@ export async function updatePurchaseOrderStatusAction(formData: FormData) {
       status: String(formData.get("status") ?? ""),
     });
 
-    const { error } = await runRpc("update_purchase_order_status", {
-      p_purchase_order_id: parsed.id,
-      p_status: parsed.status,
+    await updatePurchaseOrderStatusWithoutRpc({
+      purchaseOrderId: parsed.id,
+      status: parsed.status,
+      performedBy: profile.id,
     });
-
-    if (error) {
-      throw new Error(error.message);
-    }
 
     revalidatePurchaseOrderPaths();
   } catch (error) {
@@ -720,40 +823,14 @@ export async function updatePurchaseOrderStatusAction(formData: FormData) {
 }
 
 export async function deletePurchaseOrderAction(formData: FormData) {
-  const { supabase, profile } = await requirePortalUser("admin");
-  const runRpc = rpcMutation(supabase);
+  const { profile } = await requirePortalUser("admin");
 
   try {
     const id = String(formData.get("id") ?? "");
-    let rpcError: { message: string } | null = null;
-
-    try {
-      const result = await runRpc("delete_purchase_order", {
-        p_purchase_order_id: id,
-      });
-
-      rpcError = result.error;
-    } catch (error) {
-      if (isMissingRpcFunction(error, "delete_purchase_order")) {
-        await deletePurchaseOrderWithoutRpc({
-          purchaseOrderId: id,
-          performedBy: profile.id,
-        });
-        revalidatePurchaseOrderPaths();
-        return;
-      }
-
-      throw error;
-    }
-
-    if (isMissingRpcFunction(rpcError, "delete_purchase_order")) {
-      await deletePurchaseOrderWithoutRpc({
-        purchaseOrderId: id,
-        performedBy: profile.id,
-      });
-    } else if (rpcError) {
-      throw new Error(rpcError.message);
-    }
+    await deletePurchaseOrderWithoutRpc({
+      purchaseOrderId: id,
+      performedBy: profile.id,
+    });
 
     revalidatePurchaseOrderPaths();
   } catch (error) {

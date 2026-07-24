@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePortalUser } from "@/lib/session";
+import { normalizePurchaseOrderStatus } from "@/lib/purchase-orders";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { rpcMutation, tableMutation } from "@/lib/supabase/mutations";
 import type { PurchaseOrderRow, ShipmentRow } from "@/lib/database.types";
 import { shipmentSchema, shipmentStatusSchema } from "@/lib/validators";
@@ -59,7 +61,6 @@ async function markLinkedPurchaseOrdersShipped(
     return;
   }
 
-  const runRpc = rpcMutation(supabase);
   const { data, error } = await supabase
     .from("purchase_orders")
     .select("id, status")
@@ -70,13 +71,17 @@ async function markLinkedPurchaseOrdersShipped(
   }
 
   const orders = (data ?? []) as Pick<PurchaseOrderRow, "id" | "status">[];
+  const adminClient = createAdminSupabaseClient();
 
   for (const order of orders) {
-    if (order.status === "paid" || order.status === "ready") {
-      const { error: updateError } = await runRpc("update_purchase_order_status", {
-        p_purchase_order_id: order.id,
-        p_status: "shipped",
-      });
+    if (normalizePurchaseOrderStatus(order.status) === "paid") {
+      const { error: updateError } = await adminClient
+        .from("purchase_orders")
+        .update({
+          status: "shipped",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
 
       if (updateError) {
         throw new Error(updateError.message);

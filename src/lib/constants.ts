@@ -18,7 +18,6 @@ export const portalNav: PortalNavItem[] = [
 
 export const purchaseOrderStatuses = [
   "paid",
-  "ready",
   "shipped",
   "arrived",
 ] as const satisfies readonly Database["public"]["Enums"]["purchase_order_status"][];

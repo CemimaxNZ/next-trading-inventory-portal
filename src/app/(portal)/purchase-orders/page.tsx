@@ -13,6 +13,10 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { purchaseOrderStatuses } from "@/lib/constants";
 import type { ProductRow, PurchaseOrderItemRow, PurchaseOrderRow } from "@/lib/database.types";
 import { canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
+import {
+  buildLegacyPurchaseOrderItems,
+  normalizePurchaseOrderStatus,
+} from "@/lib/purchase-orders";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate } from "@/lib/utils";
 
@@ -47,21 +51,6 @@ function isMissingPurchaseOrderItemsTableError(message: string | undefined) {
   );
 }
 
-function buildLegacyOrderItems(purchaseOrder: LegacyPurchaseOrderRow): PurchaseOrderDisplayItem[] {
-  if (!purchaseOrder.product_id || typeof purchaseOrder.quantity !== "number" || purchaseOrder.quantity <= 0) {
-    return [];
-  }
-
-  return [
-    {
-      id: `legacy-${purchaseOrder.id}`,
-      purchase_order_id: purchaseOrder.id,
-      product_id: purchaseOrder.product_id,
-      quantity: purchaseOrder.quantity,
-    },
-  ];
-}
-
 export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrdersPageProps) {
   const { supabase, profile } = await requirePortalUser();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
@@ -88,7 +77,10 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
 
   if (useLegacyItems) {
     for (const purchaseOrder of purchaseOrders) {
-      const items = buildLegacyOrderItems(purchaseOrder);
+      const items = buildLegacyPurchaseOrderItems(purchaseOrder).map((item) => ({
+        ...item,
+        id: `legacy-${purchaseOrder.id}`,
+      }));
       orderItemsMap.set(purchaseOrder.id, items);
       totalQuantityByOrder.set(
         purchaseOrder.id,
@@ -191,6 +183,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
         <div className="space-y-4 md:hidden">
           {purchaseOrders.map((purchaseOrder) => {
             const items = orderItemsMap.get(purchaseOrder.id) ?? [];
+            const displayStatus = normalizePurchaseOrderStatus(purchaseOrder.status);
 
             return (
               <article
@@ -209,7 +202,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     </p>
                     <p className="mt-1 text-base font-semibold text-slate-950">{purchaseOrder.po_number}</p>
                   </div>
-                  <StatusBadge value={purchaseOrder.status} />
+                  <StatusBadge value={displayStatus} />
                 </div>
 
                 <div className="grid gap-3 text-sm sm:grid-cols-2">
@@ -254,7 +247,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                 {canUpdateStatus ? (
                   <form action={updatePurchaseOrderStatusAction} className="flex flex-col gap-2">
                     <input name="id" type="hidden" value={purchaseOrder.id} />
-                    <select className="input-field py-2" defaultValue={purchaseOrder.status} name="status">
+                    <select className="input-field py-2" defaultValue={displayStatus} name="status">
                       {purchaseOrderStatuses.map((status) => (
                         <option key={status} value={status}>
                           {status.replace("_", " ").toUpperCase()}
@@ -321,7 +314,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                             </label>
                             <select
                               className="input-field"
-                              defaultValue={purchaseOrder.status}
+                              defaultValue={displayStatus}
                               id={`po-status-mobile-${purchaseOrder.id}`}
                               name="status"
                             >
@@ -385,6 +378,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
             <tbody>
               {purchaseOrders.map((purchaseOrder) => {
                 const items = orderItemsMap.get(purchaseOrder.id) ?? [];
+                const displayStatus = normalizePurchaseOrderStatus(purchaseOrder.status);
 
                 return (
                   <tr
@@ -452,7 +446,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                                   </label>
                                   <select
                                     className="input-field"
-                                    defaultValue={purchaseOrder.status}
+                                    defaultValue={displayStatus}
                                     id={`po-status-edit-${purchaseOrder.id}`}
                                     name="status"
                                   >
@@ -521,14 +515,14 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     <td className="py-4 pl-4">
                       <div className="space-y-3 text-center">
                         <div className="flex justify-center">
-                          <StatusBadge value={purchaseOrder.status} />
+                          <StatusBadge value={displayStatus} />
                         </div>
                         {canUpdateStatus ? (
                           <form action={updatePurchaseOrderStatusAction} className="flex flex-col gap-2 xl:flex-row">
                             <input name="id" type="hidden" value={purchaseOrder.id} />
                             <select
                               className="input-field min-w-0 flex-1 py-2"
-                              defaultValue={purchaseOrder.status}
+                              defaultValue={displayStatus}
                               name="status"
                             >
                               {purchaseOrderStatuses.map((status) => (

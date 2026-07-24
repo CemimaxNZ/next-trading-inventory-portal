@@ -68,7 +68,7 @@ declare
   delta_record record;
 begin
   for delta_record in
-    with old_items as (
+    with old_current_items as (
       select
         item.product_id,
         sum(item.quantity)::integer as quantity
@@ -80,7 +80,7 @@ begin
       ) as item(product_id uuid, quantity integer)
       group by item.product_id
     ),
-    new_items as (
+    new_current_items as (
       select
         item.product_id,
         sum(item.quantity)::integer as quantity
@@ -91,30 +91,73 @@ begin
         end
       ) as item(product_id uuid, quantity integer)
       group by item.product_id
+    ),
+    old_in_transit_items as (
+      select
+        item.product_id,
+        sum(item.quantity)::integer as quantity
+      from jsonb_to_recordset(
+        case
+          when p_old_status in ('paid', 'ready', 'shipped') then coalesce(p_old_items, '[]'::jsonb)
+          else '[]'::jsonb
+        end
+      ) as item(product_id uuid, quantity integer)
+      group by item.product_id
+    ),
+    new_in_transit_items as (
+      select
+        item.product_id,
+        sum(item.quantity)::integer as quantity
+      from jsonb_to_recordset(
+        case
+          when p_new_status in ('paid', 'ready', 'shipped') then coalesce(p_new_items, '[]'::jsonb)
+          else '[]'::jsonb
+        end
+      ) as item(product_id uuid, quantity integer)
+      group by item.product_id
+    ),
+    tracked_products as (
+      select product_id from old_current_items
+      union
+      select product_id from new_current_items
+      union
+      select product_id from old_in_transit_items
+      union
+      select product_id from new_in_transit_items
     )
     select
-      coalesce(new_items.product_id, old_items.product_id) as product_id,
-      coalesce(new_items.quantity, 0) - coalesce(old_items.quantity, 0) as delta
-    from old_items
-    full join new_items using (product_id)
-    where coalesce(new_items.quantity, 0) <> coalesce(old_items.quantity, 0)
+      tracked_products.product_id,
+      coalesce(new_current_items.quantity, 0) - coalesce(old_current_items.quantity, 0) as current_delta,
+      coalesce(new_in_transit_items.quantity, 0) - coalesce(old_in_transit_items.quantity, 0) as in_transit_delta
+    from tracked_products
+    left join old_current_items using (product_id)
+    left join new_current_items using (product_id)
+    left join old_in_transit_items using (product_id)
+    left join new_in_transit_items using (product_id)
+    where
+      coalesce(new_current_items.quantity, 0) <> coalesce(old_current_items.quantity, 0)
+      or coalesce(new_in_transit_items.quantity, 0) <> coalesce(old_in_transit_items.quantity, 0)
   loop
-    perform public.apply_inventory_delta(delta_record.product_id, delta_record.delta, 0);
+    perform public.apply_inventory_delta(
+      delta_record.product_id,
+      delta_record.current_delta,
+      delta_record.in_transit_delta
+    );
 
-    if delta_record.delta > 0 then
+    if delta_record.current_delta > 0 then
       perform public.record_inventory_transaction(
         delta_record.product_id,
-        delta_record.delta,
+        delta_record.current_delta,
         'purchase_order_arrived',
         'PO ' || coalesce(p_new_po_number, p_old_po_number) || ' marked as arrived',
         'purchase_orders',
         p_purchase_order_id,
         p_actor
       );
-    else
+    elsif delta_record.current_delta < 0 then
       perform public.record_inventory_transaction(
         delta_record.product_id,
-        delta_record.delta,
+        delta_record.current_delta,
         'purchase_order_reversed',
         'PO ' || coalesce(p_old_po_number, p_new_po_number) || ' arrival reversed',
         'purchase_orders',
