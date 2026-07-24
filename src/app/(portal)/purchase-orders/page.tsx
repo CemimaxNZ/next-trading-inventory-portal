@@ -41,6 +41,21 @@ type PurchaseOrderDisplayItem = {
   quantity: number;
 };
 
+function matchesPurchaseOrderItemQuery(
+  item: PurchaseOrderDisplayItem,
+  query: string,
+  productMap: Map<string, ProductRow>,
+) {
+  if (!query) {
+    return true;
+  }
+
+  const product = productMap.get(item.product_id);
+  const searchText = [product?.name ?? "", product?.sku ?? ""].join(" ").toLowerCase();
+
+  return searchText.includes(query);
+}
+
 function isMissingPurchaseOrderItemsTableError(message: string | undefined) {
   if (!message) {
     return false;
@@ -113,12 +128,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
 
     const items = orderItemsMap.get(purchaseOrder.id) ?? [];
 
-    return items.some((item) => {
-      const product = productMap.get(item.product_id);
-      const searchText = [product?.name ?? "", product?.sku ?? ""].join(" ").toLowerCase();
-
-      return searchText.includes(query);
-    });
+    return items.some((item) => matchesPurchaseOrderItemQuery(item, query, productMap));
   });
 
   return (
@@ -232,178 +242,184 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
             </div>
           ) : (
             filteredPurchaseOrders.map((purchaseOrder) => {
-            const items = orderItemsMap.get(purchaseOrder.id) ?? [];
-            const displayStatus = normalizePurchaseOrderStatus(purchaseOrder.status);
+              const items = orderItemsMap.get(purchaseOrder.id) ?? [];
+              const visibleItems = items.filter((item) =>
+                matchesPurchaseOrderItemQuery(item, query, productMap),
+              );
+              const visibleQuantity = visibleItems.reduce((sum, item) => sum + item.quantity, 0);
+              const displayStatus = normalizePurchaseOrderStatus(purchaseOrder.status);
 
-            return (
-              <article
-                className={`scroll-mt-24 space-y-4 rounded-3xl border p-4 shadow-sm transition ${
-                  highlightedOrderId === purchaseOrder.id
-                    ? "border-brand-300 bg-brand-50/50 ring-2 ring-brand-100"
-                    : "border-slate-200 bg-white"
-                }`}
-                data-po-anchor={purchaseOrder.id}
-                key={purchaseOrder.id}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
-                      PO Number
-                    </p>
-                    <p className="mt-1 text-base font-semibold text-slate-950">{purchaseOrder.po_number}</p>
+              return (
+                <article
+                  className={`scroll-mt-24 space-y-4 rounded-3xl border p-4 shadow-sm transition ${
+                    highlightedOrderId === purchaseOrder.id
+                      ? "border-brand-300 bg-brand-50/50 ring-2 ring-brand-100"
+                      : "border-slate-200 bg-white"
+                  }`}
+                  data-po-anchor={purchaseOrder.id}
+                  key={purchaseOrder.id}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-400">
+                        PO Number
+                      </p>
+                      <p className="mt-1 text-base font-semibold text-slate-950">{purchaseOrder.po_number}</p>
+                    </div>
+                    <StatusBadge value={displayStatus} />
                   </div>
-                  <StatusBadge value={displayStatus} />
-                </div>
 
-                <div className="grid gap-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Supplier</p>
-                    <p className="mt-1 text-slate-700">{purchaseOrder.supplier}</p>
+                  <div className="grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Supplier</p>
+                      <p className="mt-1 text-slate-700">{purchaseOrder.supplier}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Order Date</p>
+                      <p className="mt-1 text-slate-700">{formatDate(purchaseOrder.order_date)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
+                        {query ? "Matched Quantity" : "Total Quantity"}
+                      </p>
+                      <p className="mt-1 font-semibold text-slate-950">
+                        {query ? visibleQuantity : (totalQuantityByOrder.get(purchaseOrder.id) ?? 0)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Order Date</p>
-                    <p className="mt-1 text-slate-700">{formatDate(purchaseOrder.order_date)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Total Quantity</p>
-                    <p className="mt-1 font-semibold text-slate-950">
-                      {totalQuantityByOrder.get(purchaseOrder.id) ?? 0}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Products</p>
-                  {items.length > 0 ? (
-                    items.map((item) => {
-                      const product = productMap.get(item.product_id);
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Products</p>
+                    {visibleItems.length > 0 ? (
+                      visibleItems.map((item) => {
+                        const product = productMap.get(item.product_id);
 
-                      return (
-                        <div className="rounded-2xl bg-slate-50 px-3 py-3" key={item.id}>
-                          <p className="font-medium text-slate-900">{product?.name ?? "Unknown product"}</p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {product?.sku ?? "No SKU"} • Qty {item.quantity}
-                          </p>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
-                      No product lines saved yet.
-                    </p>
-                  )}
-                </div>
-
-                {canUpdateStatus ? (
-                  <form action={updatePurchaseOrderStatusAction} className="flex flex-col gap-2">
-                    <input name="id" type="hidden" value={purchaseOrder.id} />
-                    <select className="input-field py-2" defaultValue={displayStatus} name="status">
-                      {purchaseOrderStatuses.map((status) => (
-                        <option key={status} value={status}>
-                          {status.replace("_", " ").toUpperCase()}
-                        </option>
-                      ))}
-                    </select>
-                    <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
-                      Update Status
-                    </SubmitButton>
-                  </form>
-                ) : null}
-
-                {isAdmin ? (
-                  <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                      Edit purchase order
-                    </summary>
-                    <div className="mt-4 space-y-4">
-                      <form action={updatePurchaseOrderAction} className="space-y-5">
-                        <input name="id" type="hidden" value={purchaseOrder.id} />
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div>
-                            <label className="field-label" htmlFor={`po-number-mobile-${purchaseOrder.id}`}>
-                              PO Number
-                            </label>
-                            <input
-                              className="input-field"
-                              defaultValue={purchaseOrder.po_number}
-                              id={`po-number-mobile-${purchaseOrder.id}`}
-                              name="po_number"
-                              required
-                              type="text"
-                            />
+                        return (
+                          <div className="rounded-2xl bg-slate-50 px-3 py-3" key={item.id}>
+                            <p className="font-medium text-slate-900">{product?.name ?? "Unknown product"}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {product?.sku ?? "No SKU"} • Qty {item.quantity}
+                            </p>
                           </div>
-                          <div>
-                            <label className="field-label" htmlFor={`po-supplier-mobile-${purchaseOrder.id}`}>
-                              Supplier
-                            </label>
-                            <input
-                              className="input-field"
-                              defaultValue={purchaseOrder.supplier}
-                              id={`po-supplier-mobile-${purchaseOrder.id}`}
-                              name="supplier"
-                              required
-                              type="text"
-                            />
-                          </div>
-                          <div>
-                            <label className="field-label" htmlFor={`po-date-mobile-${purchaseOrder.id}`}>
-                              Order Date
-                            </label>
-                            <div className="date-input-wrap">
+                        );
+                      })
+                    ) : (
+                      <p className="rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                        {query ? "No matching product lines in this purchase order." : "No product lines saved yet."}
+                      </p>
+                    )}
+                  </div>
+
+                  {canUpdateStatus ? (
+                    <form action={updatePurchaseOrderStatusAction} className="flex flex-col gap-2">
+                      <input name="id" type="hidden" value={purchaseOrder.id} />
+                      <select className="input-field py-2" defaultValue={displayStatus} name="status">
+                        {purchaseOrderStatuses.map((status) => (
+                          <option key={status} value={status}>
+                            {status.replace("_", " ").toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                      <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                        Update Status
+                      </SubmitButton>
+                    </form>
+                  ) : null}
+
+                  {isAdmin ? (
+                    <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                        Edit purchase order
+                      </summary>
+                      <div className="mt-4 space-y-4">
+                        <form action={updatePurchaseOrderAction} className="space-y-5">
+                          <input name="id" type="hidden" value={purchaseOrder.id} />
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className="field-label" htmlFor={`po-number-mobile-${purchaseOrder.id}`}>
+                                PO Number
+                              </label>
                               <input
                                 className="input-field"
-                                defaultValue={purchaseOrder.order_date}
-                                id={`po-date-mobile-${purchaseOrder.id}`}
-                                name="order_date"
+                                defaultValue={purchaseOrder.po_number}
+                                id={`po-number-mobile-${purchaseOrder.id}`}
+                                name="po_number"
                                 required
-                                type="date"
+                                type="text"
                               />
                             </div>
+                            <div>
+                              <label className="field-label" htmlFor={`po-supplier-mobile-${purchaseOrder.id}`}>
+                                Supplier
+                              </label>
+                              <input
+                                className="input-field"
+                                defaultValue={purchaseOrder.supplier}
+                                id={`po-supplier-mobile-${purchaseOrder.id}`}
+                                name="supplier"
+                                required
+                                type="text"
+                              />
+                            </div>
+                            <div>
+                              <label className="field-label" htmlFor={`po-date-mobile-${purchaseOrder.id}`}>
+                                Order Date
+                              </label>
+                              <div className="date-input-wrap">
+                                <input
+                                  className="input-field"
+                                  defaultValue={purchaseOrder.order_date}
+                                  id={`po-date-mobile-${purchaseOrder.id}`}
+                                  name="order_date"
+                                  required
+                                  type="date"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="field-label" htmlFor={`po-status-mobile-${purchaseOrder.id}`}>
+                                Status
+                              </label>
+                              <select
+                                className="input-field"
+                                defaultValue={displayStatus}
+                                id={`po-status-mobile-${purchaseOrder.id}`}
+                                name="status"
+                              >
+                                {purchaseOrderStatuses.map((status) => (
+                                  <option key={status} value={status}>
+                                    {status.replace("_", " ").toUpperCase()}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
-                          <div>
-                            <label className="field-label" htmlFor={`po-status-mobile-${purchaseOrder.id}`}>
-                              Status
-                            </label>
-                            <select
-                              className="input-field"
-                              defaultValue={displayStatus}
-                              id={`po-status-mobile-${purchaseOrder.id}`}
-                              name="status"
-                            >
-                              {purchaseOrderStatuses.map((status) => (
-                                <option key={status} value={status}>
-                                  {status.replace("_", " ").toUpperCase()}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
 
-                        <PurchaseOrderItemsFields
-                          initialItems={items.map((item) => ({
-                            product_id: item.product_id,
-                            quantity: item.quantity,
-                          }))}
-                          inputPrefix={`po-mobile-${purchaseOrder.id}`}
-                          products={productOptions}
-                        />
+                          <PurchaseOrderItemsFields
+                            initialItems={items.map((item) => ({
+                              product_id: item.product_id,
+                              quantity: item.quantity,
+                            }))}
+                            inputPrefix={`po-mobile-${purchaseOrder.id}`}
+                            products={productOptions}
+                          />
 
-                        <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
-                          Save Changes
-                        </SubmitButton>
-                      </form>
+                          <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                            Save Changes
+                          </SubmitButton>
+                        </form>
 
-                      <form action={deletePurchaseOrderAction}>
-                        <input name="id" type="hidden" value={purchaseOrder.id} />
-                        <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
-                          Delete Purchase Order
-                        </SubmitButton>
-                      </form>
-                    </div>
-                  </details>
-                ) : null}
-              </article>
-            );
+                        <form action={deletePurchaseOrderAction}>
+                          <input name="id" type="hidden" value={purchaseOrder.id} />
+                          <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                            Delete Purchase Order
+                          </SubmitButton>
+                        </form>
+                      </div>
+                    </details>
+                  ) : null}
+                </article>
+              );
             })
           )}
         </div>
@@ -431,6 +447,10 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
             <tbody>
               {filteredPurchaseOrders.map((purchaseOrder) => {
                 const items = orderItemsMap.get(purchaseOrder.id) ?? [];
+                const visibleItems = items.filter((item) =>
+                  matchesPurchaseOrderItemQuery(item, query, productMap),
+                );
+                const visibleQuantity = visibleItems.reduce((sum, item) => sum + item.quantity, 0);
                 const displayStatus = normalizePurchaseOrderStatus(purchaseOrder.status);
 
                 return (
@@ -542,8 +562,8 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     </td>
                     <td className="py-4 pr-6 text-slate-600">
                       <div className="space-y-2">
-                        {items.length > 0 ? (
-                          items.map((item) => {
+                        {visibleItems.length > 0 ? (
+                          visibleItems.map((item) => {
                             const product = productMap.get(item.product_id);
 
                             return (
@@ -558,12 +578,14 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                             );
                           })
                         ) : (
-                          <p className="text-sm text-slate-500">No product lines saved yet.</p>
+                          <p className="text-sm text-slate-500">
+                            {query ? "No matching product lines in this purchase order." : "No product lines saved yet."}
+                          </p>
                         )}
                       </div>
                     </td>
                     <td className="py-4 px-2 text-center text-slate-950">
-                      {totalQuantityByOrder.get(purchaseOrder.id) ?? 0}
+                      {query ? visibleQuantity : (totalQuantityByOrder.get(purchaseOrder.id) ?? 0)}
                     </td>
                     <td className="py-4 px-3 text-center text-slate-600">{purchaseOrder.supplier}</td>
                     <td className="py-4 px-3 text-center text-slate-600">{formatDate(purchaseOrder.order_date)}</td>
