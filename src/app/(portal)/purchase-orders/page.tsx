@@ -5,6 +5,7 @@ import {
   updatePurchaseOrderStatusAction,
 } from "@/app/actions/purchase-orders";
 import { PurchaseOrderItemsFields } from "@/components/purchase-orders/purchase-order-items-fields";
+import { PurchaseOrderHighlight } from "@/components/purchase-orders/purchase-order-highlight";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
@@ -112,6 +113,8 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
 
   return (
     <>
+      <PurchaseOrderHighlight orderId={highlightedOrderId} />
+
       <PageHeader
         description="Track supplier orders and move stock into inventory when goods arrive."
         title="Purchase Orders"
@@ -360,15 +363,23 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
         </div>
 
         <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-full text-left text-sm">
+          <table className="min-w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[16%]" />
+              <col className="w-[36%]" />
+              <col className="w-[12%]" />
+              <col className="w-[13%]" />
+              <col className="w-[11%]" />
+              <col className="w-[12%]" />
+            </colgroup>
             <thead className="border-b border-slate-200 text-slate-500">
               <tr>
-                <th className="pb-3 font-medium">PO Number</th>
-                <th className="pb-3 font-medium">Products</th>
-                <th className="pb-3 font-medium">Total Quantity</th>
-                <th className="pb-3 font-medium">Supplier</th>
-                <th className="pb-3 font-medium">Order Date</th>
-                <th className="pb-3 font-medium">Status</th>
+                <th className="pb-3 pr-4 font-medium">PO Number</th>
+                <th className="pb-3 pr-6 font-medium">Products</th>
+                <th className="pb-3 px-2 text-center font-medium">Total Quantity</th>
+                <th className="pb-3 px-3 text-center font-medium">Supplier</th>
+                <th className="pb-3 px-3 text-center font-medium">Order Date</th>
+                <th className="pb-3 pl-4 text-center font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -385,7 +396,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     id={`po-${purchaseOrder.id}`}
                     key={purchaseOrder.id}
                   >
-                    <td className="py-4">
+                    <td className="py-4 pr-4">
                       <p className="font-medium text-slate-950">{purchaseOrder.po_number}</p>
                       {isAdmin ? (
                         <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -480,7 +491,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                         </details>
                       ) : null}
                     </td>
-                    <td className="py-4 text-slate-600">
+                    <td className="py-4 pr-6 text-slate-600">
                       <div className="space-y-2">
                         {items.length > 0 ? (
                           items.map((item) => {
@@ -502,18 +513,24 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                         )}
                       </div>
                     </td>
-                    <td className="py-4 text-slate-950">
+                    <td className="py-4 px-2 text-center text-slate-950">
                       {totalQuantityByOrder.get(purchaseOrder.id) ?? 0}
                     </td>
-                    <td className="py-4 text-slate-600">{purchaseOrder.supplier}</td>
-                    <td className="py-4 text-slate-600">{formatDate(purchaseOrder.order_date)}</td>
-                    <td className="py-4">
-                      <div className="space-y-3">
-                        <StatusBadge value={purchaseOrder.status} />
+                    <td className="py-4 px-3 text-center text-slate-600">{purchaseOrder.supplier}</td>
+                    <td className="py-4 px-3 text-center text-slate-600">{formatDate(purchaseOrder.order_date)}</td>
+                    <td className="py-4 pl-4">
+                      <div className="space-y-3 text-center">
+                        <div className="flex justify-center">
+                          <StatusBadge value={purchaseOrder.status} />
+                        </div>
                         {canUpdateStatus ? (
-                          <form action={updatePurchaseOrderStatusAction} className="flex flex-col gap-2 lg:flex-row">
+                          <form action={updatePurchaseOrderStatusAction} className="flex flex-col gap-2 xl:flex-row">
                             <input name="id" type="hidden" value={purchaseOrder.id} />
-                            <select className="input-field min-w-36 py-2" defaultValue={purchaseOrder.status} name="status">
+                            <select
+                              className="input-field min-w-0 flex-1 py-2"
+                              defaultValue={purchaseOrder.status}
+                              name="status"
+                            >
                               {purchaseOrderStatuses.map((status) => (
                                 <option key={status} value={status}>
                                   {status.replace("_", " ").toUpperCase()}
