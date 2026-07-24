@@ -61,7 +61,7 @@ function getShipmentLinkedPoDisplay(shipment: ShipmentRow, orderMap: Map<string,
       {linkedOrderIds.map((orderId) => (
         <Link
           className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-brand-100 hover:text-slate-950"
-          href={`/purchase-orders?highlight=${orderId}#po-${orderId}`}
+          href={`/purchase-orders?highlight=${orderId}`}
           key={orderId}
         >
           {orderMap.get(orderId)?.po_number ?? "Unknown PO"}
@@ -101,26 +101,24 @@ export default async function ShipmentsPage() {
           title="Create Shipment"
         >
           <form action={createShipmentAction} className="space-y-4">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <div className="min-w-0">
-                  <label className="field-label" htmlFor="container_number">
-                    Container Number
-                  </label>
-                  <input className="input-field" id="container_number" name="container_number" required type="text" />
-                </div>
-                <div className="min-w-0">
-                  <label className="field-label" htmlFor="etd">
-                    ETD
-                  </label>
-                  <input className="input-field" defaultValue={today} id="etd" name="etd" type="date" />
-                </div>
-                <div className="min-w-0">
-                  <label className="field-label" htmlFor="eta">
-                    ETA
-                  </label>
-                  <input className="input-field" defaultValue={today} id="eta" name="eta" required type="date" />
-                </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="min-w-0">
+                <label className="field-label" htmlFor="container_number">
+                  Container Number
+                </label>
+                <input className="input-field" id="container_number" name="container_number" required type="text" />
+              </div>
+              <div className="min-w-0">
+                <label className="field-label" htmlFor="etd">
+                  ETD
+                </label>
+                <input className="input-field" defaultValue={today} id="etd" name="etd" type="date" />
+              </div>
+              <div className="min-w-0">
+                <label className="field-label" htmlFor="eta">
+                  ETA
+                </label>
+                <input className="input-field" defaultValue={today} id="eta" name="eta" required type="date" />
               </div>
               <div className="min-w-0">
                 <label className="field-label" htmlFor="shipment-status">

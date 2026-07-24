@@ -125,33 +125,31 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
           title="Create Purchase Order"
         >
           <form action={createPurchaseOrderAction} className="space-y-5">
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <div className="min-w-0">
-                  <label className="field-label" htmlFor="po_number">
-                    PO Number
-                  </label>
-                  <input className="input-field" id="po_number" name="po_number" required type="text" />
-                </div>
-                <div className="min-w-0">
-                  <label className="field-label" htmlFor="supplier">
-                    Supplier
-                  </label>
-                  <input className="input-field" id="supplier" name="supplier" required type="text" />
-                </div>
-                <div className="min-w-0">
-                  <label className="field-label" htmlFor="order_date">
-                    Order Date
-                  </label>
-                  <input
-                    className="input-field"
-                    defaultValue={today}
-                    id="order_date"
-                    name="order_date"
-                    required
-                    type="date"
-                  />
-                </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="min-w-0">
+                <label className="field-label" htmlFor="po_number">
+                  PO Number
+                </label>
+                <input className="input-field" id="po_number" name="po_number" required type="text" />
+              </div>
+              <div className="min-w-0">
+                <label className="field-label" htmlFor="supplier">
+                  Supplier
+                </label>
+                <input className="input-field" id="supplier" name="supplier" required type="text" />
+              </div>
+              <div className="min-w-0">
+                <label className="field-label" htmlFor="order_date">
+                  Order Date
+                </label>
+                <input
+                  className="input-field"
+                  defaultValue={today}
+                  id="order_date"
+                  name="order_date"
+                  required
+                  type="date"
+                />
               </div>
               <div className="min-w-0">
                 <label className="field-label" htmlFor="po-status">
@@ -202,7 +200,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     ? "border-brand-300 bg-brand-50/50 ring-2 ring-brand-100"
                     : "border-slate-200 bg-white"
                 }`}
-                id={`po-${purchaseOrder.id}`}
+                data-po-anchor={purchaseOrder.id}
                 key={purchaseOrder.id}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -397,7 +395,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                         ? "border-brand-200 bg-brand-50/40"
                         : "border-slate-100"
                     }`}
-                    id={`po-${purchaseOrder.id}`}
+                    data-po-anchor={purchaseOrder.id}
                     key={purchaseOrder.id}
                   >
                     <td className="py-4 pr-4">

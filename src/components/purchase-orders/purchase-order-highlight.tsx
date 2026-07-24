@@ -12,10 +12,20 @@ export function PurchaseOrderHighlight({ orderId }: PurchaseOrderHighlightProps)
       return;
     }
 
+    let attempts = 0;
+    let timeoutId: number | null = null;
+
     const scrollToOrder = () => {
-      const element = document.getElementById(`po-${orderId}`);
+      const element = Array.from(document.querySelectorAll<HTMLElement>(`[data-po-anchor="${orderId}"]`))
+        .find((candidate) => candidate.offsetParent !== null || candidate.getClientRects().length > 0);
 
       if (!element) {
+        attempts += 1;
+
+        if (attempts < 12) {
+          timeoutId = window.setTimeout(scrollToOrder, 120);
+        }
+
         return;
       }
 
@@ -28,6 +38,12 @@ export function PurchaseOrderHighlight({ orderId }: PurchaseOrderHighlightProps)
     window.requestAnimationFrame(() => {
       window.setTimeout(scrollToOrder, 120);
     });
+
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [orderId]);
 
   return null;
