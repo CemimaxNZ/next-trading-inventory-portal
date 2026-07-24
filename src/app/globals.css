@@ -34,10 +34,14 @@ a {
   }
 
   .input-field {
-    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100;
+    @apply block w-full min-w-0 max-w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100;
+    inline-size: 100%;
+    box-sizing: border-box;
   }
 
   .input-field[type="date"] {
+    min-width: 0;
+    max-width: 100%;
     min-height: 3.5rem;
     text-align: left;
     -webkit-appearance: none;
