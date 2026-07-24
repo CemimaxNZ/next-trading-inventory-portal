@@ -156,14 +156,21 @@ export default async function UsersPage() {
         </div>
 
         <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-center text-slate-500">
+          <table className="min-w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[30%]" />
+              <col className="w-[14%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+              <col className="w-[24%]" />
+            </colgroup>
+            <thead className="border-b border-slate-200 text-slate-500">
               <tr>
-                <th className="pb-3 font-medium">User</th>
-                <th className="pb-3 font-medium">Role</th>
-                <th className="pb-3 font-medium">Created</th>
-                <th className="pb-3 font-medium">Last Sign In</th>
-                <th className="pb-3 font-medium">Actions</th>
+                <th className="pb-3 pr-4 font-medium text-left">User</th>
+                <th className="px-3 pb-3 font-medium text-center">Role</th>
+                <th className="px-3 pb-3 font-medium text-center">Created</th>
+                <th className="px-3 pb-3 font-medium text-center">Last Sign In</th>
+                <th className="px-3 pb-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -184,14 +191,14 @@ export default async function UsersPage() {
                       </p>
                       <p className="text-sm text-slate-500">{user.email}</p>
                     </td>
-                    <td className="py-4 text-slate-600">{formatEnumLabel(profile?.role ?? "viewer")}</td>
-                    <td className="py-4 text-slate-600">{formatDate(user.created_at)}</td>
-                    <td className="py-4 text-slate-600">
+                    <td className="px-3 py-4 text-center text-slate-600">{formatEnumLabel(profile?.role ?? "viewer")}</td>
+                    <td className="px-3 py-4 text-center text-slate-600">{formatDate(user.created_at)}</td>
+                    <td className="px-3 py-4 text-center text-slate-600">
                       {user.last_sign_in_at ? formatDate(user.last_sign_in_at) : "Never"}
                     </td>
-                    <td className="py-4">
-                      <div className="flex flex-col gap-3">
-                        <form action={updateUserRoleAction} className="flex flex-col gap-2 lg:flex-row">
+                    <td className="px-3 py-4">
+                      <div className="flex flex-col items-center gap-3">
+                        <form action={updateUserRoleAction} className="flex flex-col gap-2 lg:items-center">
                           <input name="id" type="hidden" value={user.id} />
                           <select
                             className="input-field min-w-36 py-2"
@@ -204,14 +211,14 @@ export default async function UsersPage() {
                               </option>
                             ))}
                           </select>
-                          <SubmitButton className="btn-secondary" pendingLabel="Saving...">
+                          <SubmitButton className="btn-secondary justify-center" pendingLabel="Saving...">
                             Update Role
                           </SubmitButton>
                         </form>
 
                         <form action={deleteUserAction}>
                           <input name="id" type="hidden" value={user.id} />
-                          <SubmitButton className="btn-danger" pendingLabel="Deleting...">
+                          <SubmitButton className="btn-danger justify-center" pendingLabel="Deleting...">
                             Delete User
                           </SubmitButton>
                         </form>

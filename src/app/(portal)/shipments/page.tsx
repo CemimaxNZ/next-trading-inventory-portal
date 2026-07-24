@@ -295,14 +295,21 @@ export default async function ShipmentsPage() {
         </div>
 
         <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-center text-slate-500">
+          <table className="min-w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[24%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[32%]" />
+              <col className="w-[18%]" />
+            </colgroup>
+            <thead className="border-b border-slate-200 text-slate-500">
               <tr>
-                <th className="pb-3 font-medium">Container</th>
-                <th className="pb-3 font-medium">ETD</th>
-                <th className="pb-3 font-medium">ETA</th>
-                <th className="pb-3 font-medium">Linked PO</th>
-                <th className="pb-3 font-medium">Status</th>
+                <th className="pb-3 pr-4 font-medium text-left">Container</th>
+                <th className="px-3 pb-3 font-medium text-center">ETD</th>
+                <th className="px-3 pb-3 font-medium text-center">ETA</th>
+                <th className="px-3 pb-3 font-medium text-center">Linked PO</th>
+                <th className="px-3 pb-3 font-medium text-center">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -403,14 +410,20 @@ export default async function ShipmentsPage() {
                       </details>
                     ) : null}
                   </td>
-                  <td className="py-4 text-slate-600">{shipment.etd ? formatDate(shipment.etd) : "Not specified"}</td>
-                  <td className="py-4 text-slate-600">{formatDate(shipment.eta)}</td>
-                  <td className="py-4 text-slate-600">{getShipmentLinkedPoDisplay(shipment, orderMap)}</td>
-                  <td className="py-4">
-                    <div className="space-y-3">
-                      <StatusBadge value={shipmentStatus} />
+                  <td className="px-3 py-4 text-center text-slate-600">{shipment.etd ? formatDate(shipment.etd) : "Not specified"}</td>
+                  <td className="px-3 py-4 text-center text-slate-600">{formatDate(shipment.eta)}</td>
+                  <td className="px-3 py-4 text-slate-600">
+                    <div className="flex justify-center">
+                      {getShipmentLinkedPoDisplay(shipment, orderMap)}
+                    </div>
+                  </td>
+                  <td className="px-3 py-4">
+                    <div className="space-y-3 text-center">
+                      <div className="flex justify-center">
+                        <StatusBadge value={shipmentStatus} />
+                      </div>
                       {canUpdateStatus ? (
-                        <form action={updateShipmentStatusAction} className="flex flex-col gap-2 lg:flex-row">
+                        <form action={updateShipmentStatusAction} className="flex flex-col gap-2 lg:items-center">
                           <input name="id" type="hidden" value={shipment.id} />
                           <select className="input-field min-w-36 py-2" defaultValue={shipmentStatus} name="status">
                             {shipmentStatuses.map((status) => (
@@ -419,7 +432,7 @@ export default async function ShipmentsPage() {
                               </option>
                             ))}
                           </select>
-                          <SubmitButton className="btn-secondary" pendingLabel="Saving...">
+                          <SubmitButton className="btn-secondary justify-center" pendingLabel="Saving...">
                             Update
                           </SubmitButton>
                         </form>

@@ -109,20 +109,27 @@ export default async function AdjustmentsPage() {
         title="Adjustment History"
       >
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-center text-slate-500">
+          <table className="min-w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[14%]" />
+              <col className="w-[32%]" />
+              <col className="w-[12%]" />
+              <col className="w-[26%]" />
+              <col className="w-[16%]" />
+            </colgroup>
+            <thead className="border-b border-slate-200 text-slate-500">
               <tr>
-                <th className="pb-3 font-medium">Date</th>
-                <th className="pb-3 font-medium">Product</th>
-                <th className="pb-3 font-medium">Quantity</th>
-                <th className="pb-3 font-medium">Reason</th>
-                <th className="pb-3 font-medium">User</th>
+                <th className="px-3 pb-3 font-medium text-center">Date</th>
+                <th className="pb-3 pr-4 font-medium text-left">Product</th>
+                <th className="px-3 pb-3 font-medium text-center">Quantity</th>
+                <th className="pb-3 pr-4 font-medium text-left">Reason</th>
+                <th className="px-3 pb-3 font-medium text-center">User</th>
               </tr>
             </thead>
             <tbody>
               {transactions.map((transaction) => (
                 <tr className="border-b border-slate-100 last:border-b-0" key={transaction.id}>
-                  <td className="py-4 text-slate-600">{formatDate(transaction.created_at)}</td>
+                  <td className="px-3 py-4 text-center text-slate-600">{formatDate(transaction.created_at)}</td>
                   <td className="py-4">
                     <p className="font-medium text-slate-950">
                       {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
@@ -132,14 +139,14 @@ export default async function AdjustmentsPage() {
                     </p>
                   </td>
                   <td
-                    className={`py-4 font-semibold ${
+                    className={`px-3 py-4 text-center font-semibold ${
                       transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
                     }`}
                   >
                     {formatSignedQuantity(transaction.quantity)}
                   </td>
                   <td className="py-4 text-slate-600">{transaction.reason}</td>
-                  <td className="py-4 text-slate-600">
+                  <td className="px-3 py-4 text-center text-slate-600">
                     {transaction.performed_by
                       ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
                       : "System"}

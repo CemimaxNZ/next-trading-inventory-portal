@@ -71,10 +71,10 @@ export function ProductCategoryList({
             <col className="w-[10%]" />
             <col className="w-[9%]" />
           </colgroup>
-          <thead className="border-b border-slate-200 text-center text-slate-500">
+          <thead className="border-b border-slate-200 text-slate-500">
             <tr>
-              <th className="pb-3 pr-4 font-medium">Product</th>
-              <th className="pb-3 pr-4 font-medium">SKU</th>
+              <th className="pb-3 pr-4 font-medium text-left">Product</th>
+              <th className="px-3 pb-3 font-medium text-center">SKU</th>
               <th className="pb-3 px-2 text-center font-medium">Current Stock</th>
               <th className="pb-3 px-2 text-center font-medium">In Transit</th>
               <th className="pb-3 px-2 text-center font-medium">Warning Level</th>
@@ -185,7 +185,7 @@ export function ProductCategoryList({
                       </details>
                     ) : null}
                   </td>
-                  <td className="py-4 pr-4 text-slate-600">{product.sku}</td>
+                  <td className="px-3 py-4 text-center text-slate-600">{product.sku}</td>
                   <td className="py-4 px-2 text-center text-slate-950">{product.current_stock}</td>
                   <td className="py-4 px-2 text-center text-slate-600">{product.in_transit_stock}</td>
                   <td className="py-4 px-2 text-center text-slate-600">{product.low_stock_warning_level}</td>

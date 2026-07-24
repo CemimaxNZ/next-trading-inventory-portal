@@ -36,13 +36,19 @@ export default async function DashboardPage() {
         title="Low Stock Watchlist"
       >
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-center text-slate-500">
+          <table className="min-w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[62%]" />
+              <col className="w-[16%]" />
+              <col className="w-[10%]" />
+              <col className="w-[12%]" />
+            </colgroup>
+            <thead className="border-b border-slate-200 text-slate-500">
               <tr>
-                <th className="pb-3 font-medium">Product</th>
-                <th className="pb-3 font-medium">SKU</th>
-                <th className="pb-3 font-medium">Current</th>
-                <th className="pb-3 font-medium">Warning Level</th>
+                <th className="pb-3 pr-4 font-medium text-left">Product</th>
+                <th className="px-3 pb-3 font-medium text-center">SKU</th>
+                <th className="px-3 pb-3 font-medium text-center">Current</th>
+                <th className="px-3 pb-3 font-medium text-center">Warning Level</th>
               </tr>
             </thead>
             <tbody>
@@ -56,9 +62,9 @@ export default async function DashboardPage() {
                 lowStockProducts.map((product) => (
                   <tr className="border-b border-slate-100 last:border-b-0" key={product.id}>
                     <td className="py-4 font-medium text-slate-900">{product.name}</td>
-                    <td className="py-4 text-slate-600">{product.sku}</td>
-                    <td className="py-4 text-rose-700">{product.current_stock}</td>
-                    <td className="py-4 text-slate-600">{product.low_stock_warning_level}</td>
+                    <td className="px-3 py-4 text-center text-slate-600">{product.sku}</td>
+                    <td className="px-3 py-4 text-center text-rose-700">{product.current_stock}</td>
+                    <td className="px-3 py-4 text-center text-slate-600">{product.low_stock_warning_level}</td>
                   </tr>
                 ))
               )}

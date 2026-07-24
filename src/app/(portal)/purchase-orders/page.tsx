@@ -365,14 +365,14 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
               <col className="w-[11%]" />
               <col className="w-[12%]" />
             </colgroup>
-            <thead className="border-b border-slate-200 text-center text-slate-500">
+            <thead className="border-b border-slate-200 text-slate-500">
               <tr>
-                <th className="pb-3 pr-4 font-medium">PO Number</th>
-                <th className="pb-3 pr-6 font-medium">Products</th>
+                <th className="pb-3 pr-4 font-medium text-left">PO Number</th>
+                <th className="pb-3 pr-6 font-medium text-left">Products</th>
                 <th className="pb-3 px-2 text-center font-medium">Total Quantity</th>
                 <th className="pb-3 px-3 text-center font-medium">Supplier</th>
                 <th className="pb-3 px-3 text-center font-medium">Order Date</th>
-                <th className="pb-3 pl-4 text-center font-medium">Status</th>
+                <th className="px-3 pb-3 text-center font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -512,7 +512,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     </td>
                     <td className="py-4 px-3 text-center text-slate-600">{purchaseOrder.supplier}</td>
                     <td className="py-4 px-3 text-center text-slate-600">{formatDate(purchaseOrder.order_date)}</td>
-                    <td className="py-4 pl-4">
+                    <td className="px-3 py-4">
                       <div className="space-y-3 text-center">
                         <div className="flex justify-center">
                           <StatusBadge value={displayStatus} />
