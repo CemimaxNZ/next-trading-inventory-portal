@@ -107,6 +107,10 @@ a {
     pointer-events: none;
   }
 
+  .match-date-width-field {
+    @apply min-w-0 w-full justify-self-start xl:max-w-[15.75rem];
+  }
+
   .textarea-field {
     @apply input-field min-h-28 resize-y;
   }
