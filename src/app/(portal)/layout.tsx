@@ -45,7 +45,7 @@ export default async function PortalLayout({
           </form>
         </aside>
 
-        <div className="space-y-4 md:space-y-6">
+        <div className="space-y-4 md:space-y-0">
           <div className="card-surface flex items-center justify-between gap-3 px-4 py-3 md:hidden">
             <div className="min-w-0">
               <Image
