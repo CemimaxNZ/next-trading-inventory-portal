@@ -72,7 +72,7 @@ export default async function UsersPage({
                 className="input-field"
                 id="user-identifier"
                 name="identifier"
-                placeholder="team@nexttrading.local or haifang"
+                placeholder="team@nexttrading.local or Gillian"
                 required
                 spellCheck={false}
                 type="text"
