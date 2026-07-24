@@ -71,7 +71,7 @@ export function ProductCategoryList({
             <col className="w-[10%]" />
             <col className="w-[9%]" />
           </colgroup>
-          <thead className="border-b border-slate-200 text-slate-500">
+          <thead className="border-b border-slate-200 text-center text-slate-500">
             <tr>
               <th className="pb-3 pr-4 font-medium">Product</th>
               <th className="pb-3 pr-4 font-medium">SKU</th>

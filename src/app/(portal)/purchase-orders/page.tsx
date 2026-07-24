@@ -365,7 +365,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
               <col className="w-[11%]" />
               <col className="w-[12%]" />
             </colgroup>
-            <thead className="border-b border-slate-200 text-slate-500">
+            <thead className="border-b border-slate-200 text-center text-slate-500">
               <tr>
                 <th className="pb-3 pr-4 font-medium">PO Number</th>
                 <th className="pb-3 pr-6 font-medium">Products</th>

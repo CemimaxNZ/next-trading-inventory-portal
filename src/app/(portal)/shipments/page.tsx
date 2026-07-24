@@ -296,7 +296,7 @@ export default async function ShipmentsPage() {
 
         <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-slate-500">
+            <thead className="border-b border-slate-200 text-center text-slate-500">
               <tr>
                 <th className="pb-3 font-medium">Container</th>
                 <th className="pb-3 font-medium">ETD</th>

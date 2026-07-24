@@ -110,7 +110,7 @@ export default async function AdjustmentsPage() {
       >
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-slate-500">
+            <thead className="border-b border-slate-200 text-center text-slate-500">
               <tr>
                 <th className="pb-3 font-medium">Date</th>
                 <th className="pb-3 font-medium">Product</th>
@@ -153,4 +153,3 @@ export default async function AdjustmentsPage() {
     </>
   );
 }
-
