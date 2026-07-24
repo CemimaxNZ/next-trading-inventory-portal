@@ -14,10 +14,16 @@ import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatEnumLabel } from "@/lib/utils";
 import { PasswordField } from "@/components/forms/password-field";
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
   const { profile: currentProfile } = await requirePortalUser("admin");
   const canManage = canManageUsers(currentProfile.role);
   const adminClient = createAdminSupabaseClient();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const error = resolvedSearchParams?.error;
 
   const [{ data: profilesData }, { data: usersData, error: usersError }] = await Promise.all([
     adminClient.from("profiles").select("*").order("full_name"),
@@ -44,6 +50,12 @@ export default async function UsersPage() {
           description="Create a new internal user with a starting role."
           title="Add User"
         >
+          {error ? (
+            <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {decodeURIComponent(error)}
+            </div>
+          ) : null}
+
           <form action={createUserAction} className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="field-label" htmlFor="full_name">
