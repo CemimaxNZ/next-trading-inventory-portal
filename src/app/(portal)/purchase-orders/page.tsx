@@ -4,6 +4,7 @@ import {
   updatePurchaseOrderAction,
   updatePurchaseOrderStatusAction,
 } from "@/app/actions/purchase-orders";
+import { Search } from "lucide-react";
 import { PurchaseOrderItemsFields } from "@/components/purchase-orders/purchase-order-items-fields";
 import { PurchaseOrderHighlight } from "@/components/purchase-orders/purchase-order-highlight";
 import { SubmitButton } from "@/components/forms/submit-button";
@@ -24,6 +25,7 @@ type PurchaseOrdersPageProps = {
   searchParams?: Promise<{
     error?: string;
     highlight?: string;
+    query?: string;
   }>;
 };
 
@@ -56,6 +58,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const errorMessage = resolvedSearchParams?.error;
   const highlightedOrderId = resolvedSearchParams?.highlight;
+  const query = resolvedSearchParams?.query?.trim().toLowerCase() ?? "";
   const [{ data: ordersData }, { data: productsData }, { data: orderItemsData, error: orderItemsError }] = await Promise.all([
     supabase.from("purchase_orders").select("*").order("order_date", { ascending: false }),
     supabase.from("products").select("*").order("name"),
@@ -103,6 +106,20 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
   const today = new Date().toISOString().slice(0, 10);
+  const filteredPurchaseOrders = purchaseOrders.filter((purchaseOrder) => {
+    if (!query) {
+      return true;
+    }
+
+    const items = orderItemsMap.get(purchaseOrder.id) ?? [];
+
+    return items.some((item) => {
+      const product = productMap.get(item.product_id);
+      const searchText = [product?.name ?? "", product?.sku ?? ""].join(" ").toLowerCase();
+
+      return searchText.includes(query);
+    });
+  });
 
   return (
     <>
@@ -190,8 +207,31 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
         description="Change an order to Arrived to automatically increase current stock and log a transaction."
         title="Purchase Order List"
       >
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <form className="relative max-w-xl flex-1" method="get">
+            {highlightedOrderId ? <input name="highlight" type="hidden" value={highlightedOrderId} /> : null}
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              aria-label="Search purchase orders by product or SKU"
+              className="input-field pl-11"
+              defaultValue={resolvedSearchParams?.query ?? ""}
+              name="query"
+              placeholder="Search by product or SKU"
+              type="search"
+            />
+          </form>
+          <p className="text-sm text-slate-500 lg:text-right">
+            Showing {filteredPurchaseOrders.length} of {purchaseOrders.length}
+          </p>
+        </div>
+
         <div className="space-y-4 md:hidden">
-          {purchaseOrders.map((purchaseOrder) => {
+          {filteredPurchaseOrders.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+              No purchase orders match that product or SKU.
+            </div>
+          ) : (
+            filteredPurchaseOrders.map((purchaseOrder) => {
             const items = orderItemsMap.get(purchaseOrder.id) ?? [];
             const displayStatus = normalizePurchaseOrderStatus(purchaseOrder.status);
 
@@ -364,7 +404,8 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                 ) : null}
               </article>
             );
-          })}
+            })
+          )}
         </div>
 
         <div className="hidden overflow-x-auto md:block">
@@ -388,7 +429,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
               </tr>
             </thead>
             <tbody>
-              {purchaseOrders.map((purchaseOrder) => {
+              {filteredPurchaseOrders.map((purchaseOrder) => {
                 const items = orderItemsMap.get(purchaseOrder.id) ?? [];
                 const displayStatus = normalizePurchaseOrderStatus(purchaseOrder.status);
 
@@ -555,6 +596,13 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                   </tr>
                 );
               })}
+              {filteredPurchaseOrders.length === 0 ? (
+                <tr>
+                  <td className="py-6 text-sm text-slate-500" colSpan={6}>
+                    No purchase orders match that product or SKU.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
