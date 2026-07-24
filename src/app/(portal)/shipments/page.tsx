@@ -12,7 +12,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { shipmentStatuses } from "@/lib/constants";
 import type { PurchaseOrderRow, ShipmentRow } from "@/lib/database.types";
-import { canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
+import { canCreateOrders, canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatEnumLabel } from "@/lib/utils";
 
@@ -82,6 +82,7 @@ export default async function ShipmentsPage() {
   const orders = (ordersData ?? []) as PurchaseOrderRow[];
   const orderMap = new Map(orders.map((order) => [order.id, order]));
   const createOrderOptions = getAvailableOrderOptions(orders, shipments);
+  const canCreate = canCreateOrders(profile.role);
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
   const today = new Date().toISOString().slice(0, 10);
@@ -93,7 +94,7 @@ export default async function ShipmentsPage() {
         title="Shipments"
       />
 
-      {isAdmin ? (
+      {canCreate ? (
         <SectionCard
           className="relative z-20"
           description="Track a container by its ETD, ETA, status, and one or more linked purchase orders."

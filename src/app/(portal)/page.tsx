@@ -50,17 +50,16 @@ export default async function DashboardPage() {
               >
                 <div>
                   <p className="text-base font-semibold text-slate-950">{product.name}</p>
-                  <p className="mt-1 text-sm text-slate-500">{product.sku}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
                   <div className="rounded-2xl bg-slate-50 px-3 py-3">
                     <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Current</p>
                     <p className="mt-1 font-semibold text-rose-700">{product.current_stock}</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-3 py-3">
-                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Warning Level</p>
-                    <p className="mt-1 text-slate-700">{product.low_stock_warning_level}</p>
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">In Transit</p>
+                    <p className="mt-1 text-slate-700">{product.in_transit_stock}</p>
                   </div>
                 </div>
               </article>
@@ -80,17 +79,16 @@ export default async function DashboardPage() {
                   >
                     <div>
                       <p className="text-base font-semibold text-slate-950">{product.name}</p>
-                      <p className="mt-1 text-sm text-slate-500">{product.sku}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
                       <div className="rounded-2xl bg-white px-3 py-3">
                         <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Current</p>
                         <p className="mt-1 font-semibold text-rose-700">{product.current_stock}</p>
                       </div>
                       <div className="rounded-2xl bg-white px-3 py-3">
-                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Warning Level</p>
-                        <p className="mt-1 text-slate-700">{product.low_stock_warning_level}</p>
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">In Transit</p>
+                        <p className="mt-1 text-slate-700">{product.in_transit_stock}</p>
                       </div>
                     </div>
                   </article>
@@ -104,22 +102,20 @@ export default async function DashboardPage() {
           <table className="min-w-full table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[62%]" />
-              <col className="w-[16%]" />
-              <col className="w-[10%]" />
-              <col className="w-[12%]" />
+              <col className="w-[19%]" />
+              <col className="w-[19%]" />
             </colgroup>
             <thead className="border-b border-slate-200 text-slate-500">
               <tr>
                 <th className="pb-3 pr-4 font-medium text-left">Product</th>
-                <th className="px-3 pb-3 font-medium text-center">SKU</th>
                 <th className="px-3 pb-3 font-medium text-center">Current</th>
-                <th className="px-3 pb-3 font-medium text-center">Warning Level</th>
+                <th className="px-3 pb-3 font-medium text-center">In Transit</th>
               </tr>
             </thead>
             <tbody>
               {visibleLowStockProducts.length === 0 ? (
                 <tr>
-                  <td className="pt-4 text-slate-500" colSpan={4}>
+                  <td className="pt-4 text-slate-500" colSpan={3}>
                     No low-stock items right now.
                   </td>
                 </tr>
@@ -127,15 +123,14 @@ export default async function DashboardPage() {
                 visibleLowStockProducts.map((product) => (
                   <tr className="border-b border-slate-100 last:border-b-0" key={product.id}>
                     <td className="py-4 font-medium text-slate-900">{product.name}</td>
-                    <td className="px-3 py-4 text-center text-slate-600">{product.sku}</td>
                     <td className="px-3 py-4 text-center text-rose-700">{product.current_stock}</td>
-                    <td className="px-3 py-4 text-center text-slate-600">{product.low_stock_warning_level}</td>
+                    <td className="px-3 py-4 text-center text-slate-600">{product.in_transit_stock}</td>
                   </tr>
                 ))
               )}
               {extraLowStockProducts.length > 0 ? (
                 <tr>
-                  <td className="pt-4" colSpan={4}>
+                  <td className="pt-4" colSpan={3}>
                     <details className="rounded-2xl border border-slate-200 bg-white p-4">
                       <summary className="cursor-pointer text-sm font-medium text-brand-700">
                         Show {extraLowStockProducts.length} more items
@@ -144,19 +139,15 @@ export default async function DashboardPage() {
                         <table className="min-w-full table-fixed text-left text-sm">
                           <colgroup>
                             <col className="w-[62%]" />
-                            <col className="w-[16%]" />
-                            <col className="w-[10%]" />
-                            <col className="w-[12%]" />
+                            <col className="w-[19%]" />
+                            <col className="w-[19%]" />
                           </colgroup>
                           <tbody>
                             {extraLowStockProducts.map((product) => (
                               <tr className="border-b border-slate-100 last:border-b-0" key={product.id}>
                                 <td className="py-3 pr-4 font-medium text-slate-900">{product.name}</td>
-                                <td className="px-3 py-3 text-center text-slate-600">{product.sku}</td>
                                 <td className="px-3 py-3 text-center text-rose-700">{product.current_stock}</td>
-                                <td className="px-3 py-3 text-center text-slate-600">
-                                  {product.low_stock_warning_level}
-                                </td>
+                                <td className="px-3 py-3 text-center text-slate-600">{product.in_transit_stock}</td>
                               </tr>
                             ))}
                           </tbody>

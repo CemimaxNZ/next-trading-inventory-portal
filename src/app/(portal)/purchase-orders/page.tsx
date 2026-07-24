@@ -12,7 +12,7 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { purchaseOrderStatuses } from "@/lib/constants";
 import type { ProductRow, PurchaseOrderItemRow, PurchaseOrderRow } from "@/lib/database.types";
-import { canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
+import { canCreateOrders, canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
 import {
   buildLegacyPurchaseOrderItems,
   normalizePurchaseOrderStatus,
@@ -99,6 +99,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
     }
   }
 
+  const canCreate = canCreateOrders(profile.role);
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
   const today = new Date().toISOString().slice(0, 10);
@@ -118,7 +119,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
         </div>
       ) : null}
 
-      {isAdmin ? (
+      {canCreate ? (
         <SectionCard
           description="Create one purchase order with one or more product lines."
           title="Create Purchase Order"

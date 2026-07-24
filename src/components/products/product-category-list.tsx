@@ -14,14 +14,20 @@ type ProductCategoryListProps = {
   deleteProductAction: (formData: FormData) => void | Promise<void>;
 };
 
-function matchesQuery(product: ProductRow, query: string) {
+function matchesQuery(product: ProductRow, query: string, includeWarningLevel: boolean) {
   const normalizedQuery = query.trim().toLowerCase();
 
   if (!normalizedQuery) {
     return true;
   }
 
-  const haystack = [product.name, product.sku, product.category, String(product.current_stock), String(product.low_stock_warning_level)]
+  const haystack = [
+    product.name,
+    product.sku,
+    product.category,
+    String(product.current_stock),
+    ...(includeWarningLevel ? [String(product.low_stock_warning_level)] : []),
+  ]
     .join(" ")
     .toLowerCase();
 
@@ -38,8 +44,8 @@ export function ProductCategoryList({
   const [query, setQuery] = useState("");
 
   const filteredProducts = useMemo(
-    () => products.filter((product) => matchesQuery(product, query)),
-    [products, query],
+    () => products.filter((product) => matchesQuery(product, query, isAdmin)),
+    [isAdmin, products, query],
   );
 
   return (
@@ -50,7 +56,7 @@ export function ProductCategoryList({
           <input
             aria-label={`Search ${productCategoryMeta[category].label}`}
             className="input-field pl-11"
-            placeholder="Search by product name, SKU, stock or warning level"
+            placeholder={isAdmin ? "Search by product name, SKU, stock or warning level" : "Search by product name, SKU or stock"}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             type="search"
@@ -89,10 +95,12 @@ export function ProductCategoryList({
                     <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">In Transit</p>
                     <p className="mt-1 text-slate-700">{product.in_transit_stock}</p>
                   </div>
-                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
-                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Warning Level</p>
-                    <p className="mt-1 text-slate-700">{product.low_stock_warning_level}</p>
-                  </div>
+                  {isAdmin ? (
+                    <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Warning Level</p>
+                      <p className="mt-1 text-slate-700">{product.low_stock_warning_level}</p>
+                    </div>
+                  ) : null}
                   <div className="rounded-2xl bg-slate-50 px-3 py-3">
                     <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Status</p>
                     <div className="mt-2">
@@ -211,12 +219,12 @@ export function ProductCategoryList({
       <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full table-fixed text-left text-sm">
           <colgroup>
-            <col className="w-[42%]" />
-            <col className="w-[18%]" />
-            <col className="w-[11%]" />
-            <col className="w-[10%]" />
-            <col className="w-[10%]" />
-            <col className="w-[9%]" />
+            <col className={isAdmin ? "w-[42%]" : "w-[46%]"} />
+            <col className={isAdmin ? "w-[18%]" : "w-[20%]"} />
+            <col className={isAdmin ? "w-[11%]" : "w-[12%]"} />
+            <col className={isAdmin ? "w-[10%]" : "w-[12%]"} />
+            {isAdmin ? <col className="w-[10%]" /> : null}
+            <col className={isAdmin ? "w-[9%]" : "w-[10%]"} />
           </colgroup>
           <thead className="border-b border-slate-200 text-slate-500">
             <tr>
@@ -224,7 +232,7 @@ export function ProductCategoryList({
               <th className="px-3 pb-3 font-medium text-center">SKU</th>
               <th className="pb-3 px-2 text-center font-medium">Current Stock</th>
               <th className="pb-3 px-2 text-center font-medium">In Transit</th>
-              <th className="pb-3 px-2 text-center font-medium">Warning Level</th>
+              {isAdmin ? <th className="pb-3 px-2 text-center font-medium">Warning Level</th> : null}
               <th className="pb-3 px-2 text-center font-medium">Status</th>
             </tr>
           </thead>
@@ -335,7 +343,9 @@ export function ProductCategoryList({
                   <td className="px-3 py-4 text-center text-slate-600">{product.sku}</td>
                   <td className="py-4 px-2 text-center text-slate-950">{product.current_stock}</td>
                   <td className="py-4 px-2 text-center text-slate-600">{product.in_transit_stock}</td>
-                  <td className="py-4 px-2 text-center text-slate-600">{product.low_stock_warning_level}</td>
+                  {isAdmin ? (
+                    <td className="py-4 px-2 text-center text-slate-600">{product.low_stock_warning_level}</td>
+                  ) : null}
                   <td className="py-4 px-2 text-center">
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
@@ -350,7 +360,7 @@ export function ProductCategoryList({
             })}
             {filteredProducts.length === 0 ? (
               <tr>
-                <td className="py-6 text-sm text-slate-500" colSpan={6}>
+                <td className="py-6 text-sm text-slate-500" colSpan={isAdmin ? 6 : 5}>
                   No products match your search.
                 </td>
               </tr>

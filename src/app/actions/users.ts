@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { ZodError } from "zod";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { requirePortalUser } from "@/lib/session";
@@ -104,6 +105,10 @@ export async function createUserAction(formData: FormData) {
     revalidateUserPaths();
     redirect("/users");
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     if (createdUserId) {
       const adminClient = createAdminSupabaseClient();
       await adminClient.auth.admin.deleteUser(createdUserId);
@@ -138,6 +143,10 @@ export async function updateUserRoleAction(formData: FormData) {
     revalidateUserPaths();
     redirect("/users");
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     redirectToUsersError(error);
   }
 }
@@ -161,6 +170,10 @@ export async function deleteUserAction(formData: FormData) {
     revalidateUserPaths();
     redirect("/users");
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     redirectToUsersError(error);
   }
 }
