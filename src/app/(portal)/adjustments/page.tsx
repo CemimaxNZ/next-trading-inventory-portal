@@ -108,7 +108,58 @@ export default async function AdjustmentsPage() {
         description="Recent manual stock additions and removals."
         title="Adjustment History"
       >
-        <div className="overflow-x-auto">
+        <div className="space-y-4 md:hidden">
+          {transactions.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+              No manual adjustments recorded yet.
+            </div>
+          ) : (
+            transactions.map((transaction) => (
+              <article
+                className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                key={transaction.id}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-base font-semibold text-slate-950">
+                      {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-slate-500">{formatDate(transaction.created_at)}</p>
+                    <p
+                      className={`mt-1 text-base font-semibold ${
+                        transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
+                      }`}
+                    >
+                      {formatSignedQuantity(transaction.quantity)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 text-sm">
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Reason</p>
+                    <p className="mt-1 text-slate-700">{transaction.reason}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">User</p>
+                    <p className="mt-1 text-slate-700">
+                      {transaction.performed_by
+                        ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
+                        : "System"}
+                    </p>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[14%]" />

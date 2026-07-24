@@ -35,7 +35,38 @@ export default async function DashboardPage() {
         description="Products that may need replenishment soon."
         title="Low Stock Watchlist"
       >
-        <div className="overflow-x-auto">
+        <div className="space-y-4 md:hidden">
+          {lowStockProducts.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+              No low-stock items right now.
+            </div>
+          ) : (
+            lowStockProducts.map((product) => (
+              <article
+                className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                key={product.id}
+              >
+                <div>
+                  <p className="text-base font-semibold text-slate-950">{product.name}</p>
+                  <p className="mt-1 text-sm text-slate-500">{product.sku}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Current</p>
+                    <p className="mt-1 font-semibold text-rose-700">{product.current_stock}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Warning Level</p>
+                    <p className="mt-1 text-slate-700">{product.low_stock_warning_level}</p>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[62%]" />

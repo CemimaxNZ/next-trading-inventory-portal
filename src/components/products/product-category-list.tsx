@@ -61,7 +61,154 @@ export function ProductCategoryList({
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="space-y-4 md:hidden">
+        {filteredProducts.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+            No products match your search.
+          </div>
+        ) : (
+          filteredProducts.map((product) => {
+            const low = product.current_stock <= product.low_stock_warning_level;
+
+            return (
+              <article
+                className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                key={product.id}
+              >
+                <div>
+                  <p className="text-base font-semibold text-slate-950">{product.name}</p>
+                  <p className="mt-1 text-sm text-slate-500">{product.sku}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Current Stock</p>
+                    <p className="mt-1 font-semibold text-slate-950">{product.current_stock}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">In Transit</p>
+                    <p className="mt-1 text-slate-700">{product.in_transit_stock}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Warning Level</p>
+                    <p className="mt-1 text-slate-700">{product.low_stock_warning_level}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Status</p>
+                    <div className="mt-2">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                          low ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {low ? "Low stock" : "Healthy"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {isAdmin ? (
+                  <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                      Edit product
+                    </summary>
+                    <div className="mt-4 space-y-4">
+                      <form action={updateProductAction} className="grid gap-4">
+                        <input name="id" type="hidden" value={product.id} />
+                        <div>
+                          <label className="field-label" htmlFor={`name-mobile-${product.id}`}>
+                            Product Name
+                          </label>
+                          <input
+                            className="input-field"
+                            defaultValue={product.name}
+                            id={`name-mobile-${product.id}`}
+                            name="name"
+                            required
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="field-label" htmlFor={`sku-mobile-${product.id}`}>
+                            SKU
+                          </label>
+                          <input
+                            className="input-field"
+                            defaultValue={product.sku}
+                            id={`sku-mobile-${product.id}`}
+                            name="sku"
+                            required
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="field-label" htmlFor={`category-mobile-${product.id}`}>
+                            Category
+                          </label>
+                          <select
+                            className="input-field"
+                            defaultValue={product.category}
+                            id={`category-mobile-${product.id}`}
+                            name="category"
+                          >
+                            {productCategories.map((value) => (
+                              <option key={value} value={value}>
+                                {productCategoryMeta[value].label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="field-label" htmlFor={`stock-mobile-${product.id}`}>
+                              Current Stock
+                            </label>
+                            <input
+                              className="input-field"
+                              defaultValue={product.current_stock}
+                              id={`stock-mobile-${product.id}`}
+                              min="0"
+                              name="current_stock"
+                              required
+                              type="number"
+                            />
+                          </div>
+                          <div>
+                            <label className="field-label" htmlFor={`warning-mobile-${product.id}`}>
+                              Low Stock Warning Level
+                            </label>
+                            <input
+                              className="input-field"
+                              defaultValue={product.low_stock_warning_level}
+                              id={`warning-mobile-${product.id}`}
+                              min="0"
+                              name="low_stock_warning_level"
+                              required
+                              type="number"
+                            />
+                          </div>
+                        </div>
+                        <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                          Save Changes
+                        </SubmitButton>
+                      </form>
+
+                      <form action={deleteProductAction}>
+                        <input name="id" type="hidden" value={product.id} />
+                        <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                          Delete Product
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </details>
+                ) : null}
+              </article>
+            );
+          })
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="min-w-full table-fixed text-left text-sm">
           <colgroup>
             <col className="w-[42%]" />
