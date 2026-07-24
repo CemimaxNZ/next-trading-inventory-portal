@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { ZodError } from "zod";
 import type {
   InventoryTransactionRow,
@@ -772,7 +773,12 @@ export async function createPurchaseOrderAction(formData: FormData) {
     });
 
     revalidatePurchaseOrderPaths();
+    redirect("/purchase-orders");
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     redirectToPurchaseOrdersError(error);
   }
 }
@@ -798,7 +804,12 @@ export async function updatePurchaseOrderAction(formData: FormData) {
     });
 
     revalidatePurchaseOrderPaths();
+    redirect("/purchase-orders");
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
     redirectToPurchaseOrdersError(error);
   }
 }

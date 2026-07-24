@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requirePortalUser } from "@/lib/session";
 import { normalizePurchaseOrderStatus } from "@/lib/purchase-orders";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -126,6 +127,7 @@ export async function createShipmentAction(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/purchase-orders");
   revalidatePath("/shipments");
+  redirect("/shipments");
 }
 
 export async function updateShipmentAction(formData: FormData) {
@@ -165,6 +167,7 @@ export async function updateShipmentAction(formData: FormData) {
   revalidatePath("/");
   revalidatePath("/purchase-orders");
   revalidatePath("/shipments");
+  redirect("/shipments");
 }
 
 export async function updateShipmentStatusAction(formData: FormData) {
