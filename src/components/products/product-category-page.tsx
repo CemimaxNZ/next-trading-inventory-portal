@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   createProductAction,
   deleteProductAction,
@@ -140,6 +141,17 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
 
       <SectionCard
         description={`Stock levels and warning bands for all ${meta.label.toLowerCase()}.`}
+        headerAside={
+          category === "cemimax" ? (
+            <Image
+              alt="Cemimax logo"
+              className="h-auto w-32 object-contain sm:w-40"
+              height={299}
+              src="/brand/cemimax-logo.png"
+              width={752}
+            />
+          ) : null
+        }
         title={meta.label}
       >
         <ProductCategoryList

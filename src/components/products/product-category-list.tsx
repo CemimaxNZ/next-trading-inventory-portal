@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { SubmitButton } from "@/components/forms/submit-button";
@@ -63,20 +62,9 @@ export function ProductCategoryList({
             type="search"
           />
         </div>
-        <div className="flex items-center justify-between gap-3 lg:justify-end">
-          {category === "cemimax" ? (
-            <Image
-              alt="Cemimax logo"
-              className="h-auto w-28 object-contain sm:w-32"
-              height={299}
-              src="/brand/cemimax-logo.png"
-              width={752}
-            />
-          ) : null}
-          <p className="text-sm text-slate-500">
-            Showing {filteredProducts.length} of {products.length}
-          </p>
-        </div>
+        <p className="text-sm text-slate-500 lg:text-right">
+          Showing {filteredProducts.length} of {products.length}
+        </p>
       </div>
 
       <div className="space-y-4 md:hidden">
