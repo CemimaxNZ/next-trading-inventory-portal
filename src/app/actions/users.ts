@@ -46,6 +46,11 @@ function redirectToUsersError(error: unknown) {
   redirect(`/users?error=${encodeURIComponent(message)}`);
 }
 
+function revalidateUserPaths() {
+  revalidatePath("/");
+  revalidatePath("/users");
+}
+
 export async function createUserAction(formData: FormData) {
   let createdUserId: string | null = null;
 
@@ -96,8 +101,8 @@ export async function createUserAction(formData: FormData) {
       throw new Error(profileError.message);
     }
 
-    revalidatePath("/");
-    revalidatePath("/users");
+    revalidateUserPaths();
+    redirect("/users");
   } catch (error) {
     if (createdUserId) {
       const adminClient = createAdminSupabaseClient();
@@ -130,8 +135,8 @@ export async function updateUserRoleAction(formData: FormData) {
       throw new Error(error.message);
     }
 
-    revalidatePath("/");
-    revalidatePath("/users");
+    revalidateUserPaths();
+    redirect("/users");
   } catch (error) {
     redirectToUsersError(error);
   }
@@ -153,8 +158,8 @@ export async function deleteUserAction(formData: FormData) {
       throw new Error(error.message);
     }
 
-    revalidatePath("/");
-    revalidatePath("/users");
+    revalidateUserPaths();
+    redirect("/users");
   } catch (error) {
     redirectToUsersError(error);
   }
