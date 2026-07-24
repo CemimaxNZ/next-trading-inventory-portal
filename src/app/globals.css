@@ -36,12 +36,17 @@ a {
   .input-field {
     @apply block w-full min-w-0 max-w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100;
     inline-size: 100%;
+    min-inline-size: 0;
     box-sizing: border-box;
   }
 
   .input-field[type="date"] {
+    width: 100%;
+    inline-size: 100%;
     min-width: 0;
+    min-inline-size: 0;
     max-width: 100%;
+    -webkit-min-logical-width: 0;
     min-height: 3.5rem;
     text-align: left;
     -webkit-appearance: none;
@@ -49,6 +54,8 @@ a {
   }
 
   .input-field[type="date"]::-webkit-date-and-time-value {
+    width: 100%;
+    inline-size: 100%;
     min-height: 1.5rem;
     text-align: left;
   }
@@ -64,6 +71,7 @@ a {
     align-items: center;
     justify-content: flex-start;
     min-width: 100%;
+    width: 100%;
   }
 
   .input-field[type="date"]::-webkit-calendar-picker-indicator {
