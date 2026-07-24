@@ -11,14 +11,14 @@ export default async function ProductCategoryRoute({
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; query?: string }>;
 }) {
   const { category } = await params;
-  const { error } = await searchParams;
+  const { error, query } = await searchParams;
 
   if (!isProductCategory(category)) {
     notFound();
   }
 
-  return <ProductCategoryPage category={category} error={error} />;
+  return <ProductCategoryPage category={category} error={error} initialQuery={query ?? ""} />;
 }

@@ -43,9 +43,8 @@ export default async function ProductsPage() {
             const logoWidthClass = category === "cemimax" ? "w-32 sm:w-36" : "w-36 sm:w-40";
 
             return (
-              <Link
-                className="rounded-[1.75rem] border border-brand-100 bg-white p-6 transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-card"
-                href={`/products/${category}`}
+              <div
+                className="rounded-[1.75rem] border border-brand-100 bg-white p-6 transition hover:border-brand-300 hover:shadow-card"
                 key={category}
               >
                 <div className="flex items-start justify-between gap-4">
@@ -60,26 +59,34 @@ export default async function ProductsPage() {
                     />
                   </div>
                 </div>
-                <h3 className="mt-5 text-xl font-semibold text-slate-950">
-                  {productCategoryMeta[category].label}
-                </h3>
-                <p className="mt-2 text-sm text-slate-600">
-                  {productCategoryMeta[category].description}
-                </p>
+                <Link className="group block rounded-3xl" href={`/products/${category}`}>
+                  <h3 className="mt-5 text-xl font-semibold text-slate-950 transition group-hover:text-brand-700">
+                    {productCategoryMeta[category].label}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {productCategoryMeta[category].description}
+                  </p>
+                </Link>
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl bg-slate-50 p-4">
+                  <Link
+                    className="rounded-2xl bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:bg-slate-100"
+                    href={`/products/${category}`}
+                  >
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Products</p>
                     <p className="mt-2 text-2xl font-semibold text-slate-950">
                       {categoryProducts.length}
                     </p>
-                  </div>
-                  <div className="rounded-2xl bg-slate-50 p-4">
+                  </Link>
+                  <Link
+                    className="rounded-2xl bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:bg-brand-50 hover:text-brand-900"
+                    href={`/products/${category}?query=${encodeURIComponent("low stock")}`}
+                  >
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Low Stock</p>
                     <p className="mt-2 text-2xl font-semibold text-slate-950">{lowStockCount}</p>
-                  </div>
+                  </Link>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>

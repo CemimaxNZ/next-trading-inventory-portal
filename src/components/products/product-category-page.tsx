@@ -29,9 +29,14 @@ import { requirePortalUser } from "@/lib/session";
 type ProductCategoryPageProps = {
   category: ProductCategory;
   error?: string;
+  initialQuery?: string;
 };
 
-export async function ProductCategoryPage({ category, error }: ProductCategoryPageProps) {
+export async function ProductCategoryPage({
+  category,
+  error,
+  initialQuery = "",
+}: ProductCategoryPageProps) {
   const { supabase, profile } = await requirePortalUser();
   const [
     { data: productsData },
@@ -157,6 +162,7 @@ export async function ProductCategoryPage({ category, error }: ProductCategoryPa
         <ProductCategoryList
           category={category}
           deleteProductAction={deleteProductAction}
+          initialQuery={initialQuery}
           isAdmin={isAdmin}
           products={productsWithComputedInTransit}
           updateProductAction={updateProductAction}

@@ -12,9 +12,14 @@ type ProductCategoryListProps = {
   isAdmin: boolean;
   updateProductAction: (formData: FormData) => void | Promise<void>;
   deleteProductAction: (formData: FormData) => void | Promise<void>;
+  initialQuery?: string;
 };
 
-function matchesQuery(product: ProductRow, query: string, includeWarningLevel: boolean) {
+function getProductStatusLabel(product: ProductRow) {
+  return product.current_stock <= product.low_stock_warning_level ? "Low stock" : "Healthy";
+}
+
+function matchesQuery(product: ProductRow, query: string) {
   const normalizedQuery = query.trim().toLowerCase();
 
   if (!normalizedQuery) {
@@ -26,7 +31,7 @@ function matchesQuery(product: ProductRow, query: string, includeWarningLevel: b
     product.sku,
     product.category,
     String(product.current_stock),
-    ...(includeWarningLevel ? [String(product.low_stock_warning_level)] : []),
+    getProductStatusLabel(product),
   ]
     .join(" ")
     .toLowerCase();
@@ -40,12 +45,13 @@ export function ProductCategoryList({
   isAdmin,
   updateProductAction,
   deleteProductAction,
+  initialQuery = "",
 }: ProductCategoryListProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
 
   const filteredProducts = useMemo(
-    () => products.filter((product) => matchesQuery(product, query, isAdmin)),
-    [isAdmin, products, query],
+    () => products.filter((product) => matchesQuery(product, query)),
+    [products, query],
   );
 
   return (
@@ -56,7 +62,7 @@ export function ProductCategoryList({
           <input
             aria-label={`Search ${productCategoryMeta[category].label}`}
             className="input-field pl-11"
-            placeholder={isAdmin ? "Search by product name, SKU, stock or warning level" : "Search by product name, SKU or stock"}
+            placeholder="Search by product name, SKU, stock or status"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             type="search"
@@ -74,7 +80,8 @@ export function ProductCategoryList({
           </div>
         ) : (
           filteredProducts.map((product) => {
-            const low = product.current_stock <= product.low_stock_warning_level;
+            const statusLabel = getProductStatusLabel(product);
+            const low = statusLabel === "Low stock";
 
             return (
               <article
@@ -109,7 +116,7 @@ export function ProductCategoryList({
                           low ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
                         }`}
                       >
-                        {low ? "Low stock" : "Healthy"}
+                        {statusLabel}
                       </span>
                     </div>
                   </div>
@@ -238,7 +245,8 @@ export function ProductCategoryList({
           </thead>
           <tbody>
             {filteredProducts.map((product) => {
-              const low = product.current_stock <= product.low_stock_warning_level;
+              const statusLabel = getProductStatusLabel(product);
+              const low = statusLabel === "Low stock";
 
               return (
                 <tr className="border-b border-slate-100 align-top last:border-b-0" key={product.id}>
@@ -352,7 +360,7 @@ export function ProductCategoryList({
                         low ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
                       }`}
                     >
-                      {low ? "Low stock" : "Healthy"}
+                      {statusLabel}
                     </span>
                   </td>
                 </tr>
