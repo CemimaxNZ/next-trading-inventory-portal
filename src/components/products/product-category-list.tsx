@@ -65,15 +65,13 @@ export function ProductCategoryList({
         </div>
         <div className="flex items-center justify-between gap-3 lg:justify-end">
           {category === "cemimax" ? (
-            <div className="rounded-2xl border border-brand-100 bg-brand-50/60 px-3 py-2">
-              <Image
-                alt="Cemimax logo"
-                className="h-auto w-28 object-contain sm:w-32"
-                height={299}
-                src="/brand/cemimax-logo.png"
-                width={752}
-              />
-            </div>
+            <Image
+              alt="Cemimax logo"
+              className="h-auto w-28 object-contain sm:w-32"
+              height={299}
+              src="/brand/cemimax-logo.png"
+              width={752}
+            />
           ) : null}
           <p className="text-sm text-slate-500">
             Showing {filteredProducts.length} of {products.length}
