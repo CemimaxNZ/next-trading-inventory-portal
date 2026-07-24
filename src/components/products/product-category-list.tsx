@@ -62,15 +62,23 @@ export function ProductCategoryList({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
+        <table className="min-w-full table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-[42%]" />
+            <col className="w-[18%]" />
+            <col className="w-[11%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[9%]" />
+          </colgroup>
           <thead className="border-b border-slate-200 text-slate-500">
             <tr>
-              <th className="pb-3 font-medium">Product</th>
-              <th className="pb-3 font-medium">SKU</th>
-              <th className="pb-3 font-medium">Current Stock</th>
-              <th className="pb-3 font-medium">In Transit</th>
-              <th className="pb-3 font-medium">Warning Level</th>
-              <th className="pb-3 font-medium">Status</th>
+              <th className="pb-3 pr-4 font-medium">Product</th>
+              <th className="pb-3 pr-4 font-medium">SKU</th>
+              <th className="pb-3 px-2 text-center font-medium">Current Stock</th>
+              <th className="pb-3 px-2 text-center font-medium">In Transit</th>
+              <th className="pb-3 px-2 text-center font-medium">Warning Level</th>
+              <th className="pb-3 px-2 text-center font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -79,7 +87,7 @@ export function ProductCategoryList({
 
               return (
                 <tr className="border-b border-slate-100 align-top last:border-b-0" key={product.id}>
-                  <td className="py-4">
+                  <td className="py-4 pr-4">
                     <p className="font-medium text-slate-950">{product.name}</p>
                     {isAdmin ? (
                       <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -177,11 +185,11 @@ export function ProductCategoryList({
                       </details>
                     ) : null}
                   </td>
-                  <td className="py-4 text-slate-600">{product.sku}</td>
-                  <td className="py-4 text-slate-950">{product.current_stock}</td>
-                  <td className="py-4 text-slate-600">{product.in_transit_stock}</td>
-                  <td className="py-4 text-slate-600">{product.low_stock_warning_level}</td>
-                  <td className="py-4">
+                  <td className="py-4 pr-4 text-slate-600">{product.sku}</td>
+                  <td className="py-4 px-2 text-center text-slate-950">{product.current_stock}</td>
+                  <td className="py-4 px-2 text-center text-slate-600">{product.in_transit_stock}</td>
+                  <td className="py-4 px-2 text-center text-slate-600">{product.low_stock_warning_level}</td>
+                  <td className="py-4 px-2 text-center">
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                         low ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
