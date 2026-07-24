@@ -91,8 +91,9 @@ async function markLinkedPurchaseOrdersShipped(
 }
 
 export async function createShipmentAction(formData: FormData) {
-  const { supabase, profile } = await requirePortalUser("admin");
-  const shipments = tableMutation(supabase, "shipments");
+  const { supabase, profile } = await requirePortalUser("operator");
+  const adminClient = createAdminSupabaseClient();
+  const shipments = tableMutation(adminClient, "shipments");
   const parsed = shipmentSchema.parse({
     container_number: String(formData.get("container_number") ?? ""),
     etd: String(formData.get("etd") ?? ""),

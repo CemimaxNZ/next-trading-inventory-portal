@@ -117,7 +117,9 @@ function isMissingPurchaseOrderColumnError(error: unknown) {
 
   return Boolean(
     message.includes('column "product_id" of relation "purchase_orders" does not exist')
-    || message.includes('column "quantity" of relation "purchase_orders" does not exist'),
+    || message.includes('column "quantity" of relation "purchase_orders" does not exist')
+    || message.includes("Could not find the 'product_id' column of 'purchase_orders' in the schema cache")
+    || message.includes("Could not find the 'quantity' column of 'purchase_orders' in the schema cache"),
   );
 }
 
@@ -752,7 +754,7 @@ async function deletePurchaseOrderWithoutRpc({
 }
 
 export async function createPurchaseOrderAction(formData: FormData) {
-  const { profile } = await requirePortalUser("admin");
+  const { profile } = await requirePortalUser("operator");
 
   try {
     const parsed = purchaseOrderSchema.parse({
