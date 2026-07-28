@@ -100,12 +100,18 @@ function SearchableProductPicker({
         .includes(normalizedQuery),
     );
   }, [products, row.query]);
+  const selectedProduct = products.find((product) => product.id === row.product_id);
 
   return (
     <div className="space-y-2">
-      <label className="field-label" htmlFor={`${inputPrefix}-product-search-${row.key}`}>
-        Product {rowIndex + 1}
-      </label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label className="field-label mb-0" htmlFor={`${inputPrefix}-product-search-${row.key}`}>
+          Product {rowIndex + 1}
+        </label>
+        <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+          {selectedProduct ? selectedProduct.sku : "Select a product"}
+        </span>
+      </div>
       <input name="item_product_id" type="hidden" value={row.product_id} />
       <div className="relative">
         <Search className="pointer-events-none absolute left-4 top-4 h-4 w-4 text-slate-400" />
@@ -167,6 +173,16 @@ function SearchableProductPicker({
           </div>
         ) : null}
       </div>
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600">
+        {selectedProduct ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-medium text-slate-900">{selectedProduct.name}</span>
+            <span className="text-xs text-slate-500">{selectedProduct.sku}</span>
+          </div>
+        ) : (
+          <span>Search by product name or SKU, then choose one result.</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -210,7 +226,7 @@ export function PurchaseOrderItemsFields({
     <div className="space-y-4">
       {rows.map((row, index) => (
         <div
-          className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1.4fr_0.8fr_auto]"
+          className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"
           key={row.key}
         >
           <SearchableProductPicker
@@ -237,30 +253,32 @@ export function PurchaseOrderItemsFields({
             rowIndex={index}
           />
 
-          <div>
-            <label className="field-label" htmlFor={`${inputPrefix}-quantity-${row.key}`}>
-              Quantity
-            </label>
-            <input
-              className="input-field"
-              id={`${inputPrefix}-quantity-${row.key}`}
-              min="1"
-              name="item_quantity"
-              onChange={(event) => updateRow(row.key, "quantity", event.target.value)}
-              required
-              type="number"
-              value={row.quantity}
-            />
-          </div>
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,12rem)_auto] sm:items-end sm:justify-between">
+            <div className="max-w-xs">
+              <label className="field-label" htmlFor={`${inputPrefix}-quantity-${row.key}`}>
+                Quantity
+              </label>
+              <input
+                className="input-field"
+                id={`${inputPrefix}-quantity-${row.key}`}
+                min="1"
+                name="item_quantity"
+                onChange={(event) => updateRow(row.key, "quantity", event.target.value)}
+                required
+                type="number"
+                value={row.quantity}
+              />
+            </div>
 
-          <div className="flex items-end">
-            <button
-              className="btn-secondary w-full"
-              onClick={() => removeRow(row.key)}
-              type="button"
-            >
-              Remove
-            </button>
+            <div className="flex items-end sm:justify-end">
+              <button
+                className="btn-secondary w-full sm:w-auto sm:min-w-36"
+                onClick={() => removeRow(row.key)}
+                type="button"
+              >
+                Remove
+              </button>
+            </div>
           </div>
         </div>
       ))}
