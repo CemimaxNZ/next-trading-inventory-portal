@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { SubmitButton } from "@/components/forms/submit-button";
 import type { ProductCategory, ProductRow } from "@/lib/database.types";
@@ -249,121 +249,129 @@ export function ProductCategoryList({
               const low = statusLabel === "Low stock";
 
               return (
-                <tr className="border-b border-slate-100 align-top last:border-b-0" key={product.id}>
-                  <td className="py-4 pr-4">
-                    <p className="font-medium text-slate-950">{product.name}</p>
+                <Fragment key={product.id}>
+                  <tr className={`${isAdmin ? "border-b-0" : "border-b"} border-slate-100 align-top last:border-b-0`}>
+                    <td className="py-4 pr-4">
+                      <p className="font-medium text-slate-950">{product.name}</p>
+                    </td>
+                    <td className="px-3 py-4 text-center text-slate-600">{product.sku}</td>
+                    <td className="py-4 px-2 text-center text-slate-950">{product.current_stock}</td>
+                    <td className="py-4 px-2 text-center text-slate-600">{product.in_transit_stock}</td>
                     {isAdmin ? (
-                      <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                          Edit product
-                        </summary>
-                        <div className="mt-4 space-y-4">
-                          <form action={updateProductAction} className="grid gap-4 md:grid-cols-5">
-                            <input name="id" type="hidden" value={product.id} />
-                            <div>
-                              <label className="field-label" htmlFor={`name-${product.id}`}>
-                                Product Name
-                              </label>
-                              <input
-                                className="input-field"
-                                defaultValue={product.name}
-                                id={`name-${product.id}`}
-                                name="name"
-                                required
-                                type="text"
-                              />
-                            </div>
-                            <div>
-                              <label className="field-label" htmlFor={`sku-${product.id}`}>
-                                SKU
-                              </label>
-                              <input
-                                className="input-field"
-                                defaultValue={product.sku}
-                                id={`sku-${product.id}`}
-                                name="sku"
-                                required
-                                type="text"
-                              />
-                            </div>
-                            <div>
-                              <label className="field-label" htmlFor={`category-${product.id}`}>
-                                Category
-                              </label>
-                              <select
-                                className="input-field"
-                                defaultValue={product.category}
-                                id={`category-${product.id}`}
-                                name="category"
-                              >
-                                {productCategories.map((value) => (
-                                  <option key={value} value={value}>
-                                    {productCategoryMeta[value].label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="field-label" htmlFor={`stock-${product.id}`}>
-                                Current Stock
-                              </label>
-                              <input
-                                className="input-field"
-                                defaultValue={product.current_stock}
-                                id={`stock-${product.id}`}
-                                min="0"
-                                name="current_stock"
-                                required
-                                type="number"
-                              />
-                            </div>
-                            <div>
-                              <label className="field-label" htmlFor={`warning-${product.id}`}>
-                                Low Stock Warning Level
-                              </label>
-                              <input
-                                className="input-field"
-                                defaultValue={product.low_stock_warning_level}
-                                id={`warning-${product.id}`}
-                                min="0"
-                                name="low_stock_warning_level"
-                                required
-                                type="number"
-                              />
-                            </div>
-                            <div className="md:col-span-5">
-                              <SubmitButton className="btn-secondary" pendingLabel="Saving...">
-                                Save Changes
-                              </SubmitButton>
-                            </div>
-                          </form>
-
-                          <form action={deleteProductAction}>
-                            <input name="id" type="hidden" value={product.id} />
-                            <SubmitButton className="btn-danger" pendingLabel="Deleting...">
-                              Delete Product
-                            </SubmitButton>
-                          </form>
-                        </div>
-                      </details>
+                      <td className="py-4 px-2 text-center text-slate-600">{product.low_stock_warning_level}</td>
                     ) : null}
-                  </td>
-                  <td className="px-3 py-4 text-center text-slate-600">{product.sku}</td>
-                  <td className="py-4 px-2 text-center text-slate-950">{product.current_stock}</td>
-                  <td className="py-4 px-2 text-center text-slate-600">{product.in_transit_stock}</td>
+                    <td className="py-4 px-2 text-center">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                          low ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {statusLabel}
+                      </span>
+                    </td>
+                  </tr>
                   {isAdmin ? (
-                    <td className="py-4 px-2 text-center text-slate-600">{product.low_stock_warning_level}</td>
+                    <tr className="border-b border-slate-100">
+                      <td className="pb-4 pt-0" colSpan={6}>
+                        <details className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                          <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                            Edit product
+                          </summary>
+                          <div className="mt-5 space-y-5">
+                            <form action={updateProductAction} className="space-y-5">
+                              <input name="id" type="hidden" value={product.id} />
+                              <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+                                <div className="2xl:col-span-2">
+                                  <label className="field-label" htmlFor={`name-${product.id}`}>
+                                    Product Name
+                                  </label>
+                                  <input
+                                    className="input-field"
+                                    defaultValue={product.name}
+                                    id={`name-${product.id}`}
+                                    name="name"
+                                    required
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="field-label" htmlFor={`sku-${product.id}`}>
+                                    SKU
+                                  </label>
+                                  <input
+                                    className="input-field"
+                                    defaultValue={product.sku}
+                                    id={`sku-${product.id}`}
+                                    name="sku"
+                                    required
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="field-label" htmlFor={`category-${product.id}`}>
+                                    Category
+                                  </label>
+                                  <select
+                                    className="input-field"
+                                    defaultValue={product.category}
+                                    id={`category-${product.id}`}
+                                    name="category"
+                                  >
+                                    {productCategories.map((value) => (
+                                      <option key={value} value={value}>
+                                        {productCategoryMeta[value].label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="field-label" htmlFor={`stock-${product.id}`}>
+                                    Current Stock
+                                  </label>
+                                  <input
+                                    className="input-field"
+                                    defaultValue={product.current_stock}
+                                    id={`stock-${product.id}`}
+                                    min="0"
+                                    name="current_stock"
+                                    required
+                                    type="number"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="field-label" htmlFor={`warning-${product.id}`}>
+                                    Low Stock Warning Level
+                                  </label>
+                                  <input
+                                    className="input-field"
+                                    defaultValue={product.low_stock_warning_level}
+                                    id={`warning-${product.id}`}
+                                    min="0"
+                                    name="low_stock_warning_level"
+                                    required
+                                    type="number"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-3">
+                                <SubmitButton className="btn-secondary min-w-40" pendingLabel="Saving...">
+                                  Save Changes
+                                </SubmitButton>
+                              </div>
+                            </form>
+
+                            <form action={deleteProductAction}>
+                              <input name="id" type="hidden" value={product.id} />
+                              <SubmitButton className="btn-danger min-w-48" pendingLabel="Deleting...">
+                                Delete Product
+                              </SubmitButton>
+                            </form>
+                          </div>
+                        </details>
+                      </td>
+                    </tr>
                   ) : null}
-                  <td className="py-4 px-2 text-center">
-                    <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                        low ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
-                      }`}
-                    >
-                      {statusLabel}
-                    </span>
-                  </td>
-                </tr>
+                </Fragment>
               );
             })}
             {filteredProducts.length === 0 ? (
