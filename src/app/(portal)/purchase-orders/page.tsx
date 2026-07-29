@@ -13,7 +13,12 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { purchaseOrderStatuses } from "@/lib/constants";
 import type { ProductRow, PurchaseOrderItemRow, PurchaseOrderRow } from "@/lib/database.types";
-import { canCreateOrders, canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
+import {
+  canCreateOrders,
+  canEditOrders,
+  canManageOrders,
+  canUpdateOperationalStatus,
+} from "@/lib/permissions";
 import {
   buildLegacyPurchaseOrderItems,
   normalizePurchaseOrderStatus,
@@ -119,6 +124,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
   }
 
   const canCreate = canCreateOrders(profile.role);
+  const canEdit = canEditOrders(profile.role);
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
   const today = new Date().toISOString().slice(0, 10);
@@ -327,7 +333,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     </form>
                   ) : null}
 
-                  {isAdmin ? (
+                  {canEdit ? (
                     <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <summary className="cursor-pointer text-sm font-medium text-brand-700">
                         Edit purchase order
@@ -410,12 +416,14 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                           </SubmitButton>
                         </form>
 
-                        <form action={deletePurchaseOrderAction}>
-                          <input name="id" type="hidden" value={purchaseOrder.id} />
-                          <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
-                            Delete Purchase Order
-                          </SubmitButton>
-                        </form>
+                        {isAdmin ? (
+                          <form action={deletePurchaseOrderAction}>
+                            <input name="id" type="hidden" value={purchaseOrder.id} />
+                            <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                              Delete Purchase Order
+                            </SubmitButton>
+                          </form>
+                        ) : null}
                       </div>
                     </details>
                   ) : null}
@@ -461,7 +469,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                         highlightedOrderId === purchaseOrder.id
                           ? "bg-brand-50/40"
                           : "bg-transparent"
-                      } ${isAdmin ? "border-b-0" : "border-b"} border-slate-100 last:border-b-0`}
+                      } ${canEdit ? "border-b-0" : "border-b"} border-slate-100 last:border-b-0`}
                       data-po-anchor={purchaseOrder.id}
                     >
                       <td className="py-4 pr-4">
@@ -523,7 +531,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                         </div>
                       </td>
                     </tr>
-                    {isAdmin ? (
+                    {canEdit ? (
                       <tr
                         className={`border-b border-slate-100 ${
                           highlightedOrderId === purchaseOrder.id ? "bg-brand-50/20" : "bg-transparent"
@@ -614,12 +622,14 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                                 </div>
                               </form>
 
-                              <form action={deletePurchaseOrderAction}>
-                                <input name="id" type="hidden" value={purchaseOrder.id} />
-                                <SubmitButton className="btn-danger min-w-48" pendingLabel="Deleting...">
-                                  Delete Purchase Order
-                                </SubmitButton>
-                              </form>
+                              {isAdmin ? (
+                                <form action={deletePurchaseOrderAction}>
+                                  <input name="id" type="hidden" value={purchaseOrder.id} />
+                                  <SubmitButton className="btn-danger min-w-48" pendingLabel="Deleting...">
+                                    Delete Purchase Order
+                                  </SubmitButton>
+                                </form>
+                              ) : null}
                             </div>
                           </details>
                         </td>

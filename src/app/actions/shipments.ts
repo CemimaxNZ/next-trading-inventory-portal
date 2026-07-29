@@ -131,7 +131,7 @@ export async function createShipmentAction(formData: FormData) {
 }
 
 export async function updateShipmentAction(formData: FormData) {
-  const { supabase } = await requirePortalUser("admin");
+  const { supabase } = await requirePortalUser("operator");
   const shipments = tableMutation(supabase, "shipments");
   const id = String(formData.get("id") ?? "");
   const parsed = shipmentSchema.parse({

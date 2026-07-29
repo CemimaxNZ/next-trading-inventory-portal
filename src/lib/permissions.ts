@@ -26,6 +26,10 @@ export function canManageOrders(role: AppRole) {
   return role === "admin";
 }
 
+export function canEditOrders(role: AppRole) {
+  return hasAtLeastRole(role, "operator");
+}
+
 export function canCreateOrders(role: AppRole) {
   return hasAtLeastRole(role, "operator");
 }

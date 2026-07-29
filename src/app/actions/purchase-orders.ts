@@ -784,7 +784,7 @@ export async function createPurchaseOrderAction(formData: FormData) {
 }
 
 export async function updatePurchaseOrderAction(formData: FormData) {
-  const { profile } = await requirePortalUser("admin");
+  const { profile } = await requirePortalUser("operator");
 
   try {
     const id = String(formData.get("id") ?? "");

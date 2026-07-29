@@ -84,6 +84,35 @@ export const stockAdjustmentSchema = z.object({
   reason: z.string().trim().min(4),
 });
 
+export const stockAdjustmentItemSchema = z.object({
+  product_id: z.string().uuid(),
+  adjustment: z.enum(["add", "remove"]),
+  quantity: z.coerce.number().int().positive(),
+});
+
+export const stockAdjustmentBatchSchema = z.object({
+  effective_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  reason: z.string().trim().min(4),
+  items: z
+    .array(stockAdjustmentItemSchema)
+    .min(1, "At least one product is required")
+    .superRefine((items, ctx) => {
+      const seen = new Set<string>();
+
+      items.forEach((item, index) => {
+        if (seen.has(item.product_id)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Each product can only appear once per adjustment.",
+            path: [index, "product_id"],
+          });
+        }
+
+        seen.add(item.product_id);
+      });
+    }),
+});
+
 export const userCreateSchema = z.object({
   identifier: z.string().trim().min(2),
   password: z.string().min(8),

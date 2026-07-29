@@ -1,4 +1,5 @@
 import { createStockAdjustmentAction } from "@/app/actions/adjustments";
+import { StockAdjustmentItemsFields } from "@/components/adjustments/stock-adjustment-items-fields";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
@@ -11,8 +12,16 @@ import { canAdjustStock } from "@/lib/permissions";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatSignedQuantity } from "@/lib/utils";
 
-export default async function AdjustmentsPage() {
+type AdjustmentsPageProps = {
+  searchParams?: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageProps) {
   const { supabase, profile } = await requirePortalUser();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const errorMessage = resolvedSearchParams?.error;
   const [{ data: productsData }, { data: transactionsData }, { data: profilesData }] =
     await Promise.all([
       supabase.from("products").select("*").order("name"),
@@ -28,9 +37,15 @@ export default async function AdjustmentsPage() {
   const products = (productsData ?? []) as ProductRow[];
   const transactions = (transactionsData ?? []) as InventoryTransactionRow[];
   const profiles = (profilesData ?? []) as ProfileRow[];
+  const productOptions = products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+  }));
   const productMap = new Map(products.map((product) => [product.id, product]));
   const profileMap = new Map(profiles.map((entry) => [entry.id, entry]));
   const canAdjust = canAdjustStock(profile.role);
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <>
@@ -39,54 +54,53 @@ export default async function AdjustmentsPage() {
         title="Manual Stock Adjustment"
       />
 
+      {errorMessage ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {errorMessage}
+        </div>
+      ) : null}
+
       {canAdjust ? (
         <SectionCard
           description="Operators and admins can record controlled stock changes here."
           title="Create Adjustment"
         >
-          <form action={createStockAdjustmentAction} className="grid gap-4 md:grid-cols-2">
+          <form action={createStockAdjustmentAction} className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+              <div>
+                <label className="field-label" htmlFor="effective_date">
+                  Adjustment Date
+                </label>
+                <div className="date-input-wrap">
+                  <input
+                    className="input-field"
+                    defaultValue={today}
+                    id="effective_date"
+                    name="effective_date"
+                    required
+                    type="date"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="reason">
+                  Reason
+                </label>
+                <input className="input-field" id="reason" name="reason" required type="text" />
+              </div>
+            </div>
+
             <div>
-              <label className="field-label" htmlFor="product_id">
-                Product
-              </label>
-              <select className="input-field" id="product_id" name="product_id" required>
-                <option value="">Select product</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name} ({product.sku})
-                  </option>
-                ))}
-              </select>
+              <div className="mb-3 h-1.5 w-12 rounded-full bg-brand-400" />
+              <h3 className="text-base font-semibold text-slate-950">Adjustment Lines</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Use one date and one reason for the whole stock count, then add all product changes below.
+              </p>
             </div>
+
+            <StockAdjustmentItemsFields products={productOptions} />
+
             <div>
-              <label className="field-label" htmlFor="adjustment">
-                Adjustment Type
-              </label>
-              <select className="input-field" defaultValue="add" id="adjustment" name="adjustment">
-                <option value="add">Add Stock</option>
-                <option value="remove">Remove Stock</option>
-              </select>
-            </div>
-            <div>
-              <label className="field-label" htmlFor="adjustment-quantity">
-                Quantity
-              </label>
-              <input
-                className="input-field"
-                id="adjustment-quantity"
-                min="1"
-                name="quantity"
-                required
-                type="number"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="field-label" htmlFor="reason">
-                Reason
-              </label>
-              <textarea className="textarea-field" id="reason" name="reason" required />
-            </div>
-            <div className="md:col-span-2">
               <SubmitButton className="btn-primary" pendingLabel="Saving...">
                 Save Adjustment
               </SubmitButton>

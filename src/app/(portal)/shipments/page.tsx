@@ -12,7 +12,12 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { shipmentStatuses } from "@/lib/constants";
 import type { PurchaseOrderRow, ShipmentRow } from "@/lib/database.types";
-import { canCreateOrders, canManageOrders, canUpdateOperationalStatus } from "@/lib/permissions";
+import {
+  canCreateOrders,
+  canEditOrders,
+  canManageOrders,
+  canUpdateOperationalStatus,
+} from "@/lib/permissions";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatEnumLabel } from "@/lib/utils";
 
@@ -83,6 +88,7 @@ export default async function ShipmentsPage() {
   const orderMap = new Map(orders.map((order) => [order.id, order]));
   const createOrderOptions = getAvailableOrderOptions(orders, shipments);
   const canCreate = canCreateOrders(profile.role);
+  const canEdit = canEditOrders(profile.role);
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
   const today = new Date().toISOString().slice(0, 10);
@@ -207,7 +213,7 @@ export default async function ShipmentsPage() {
                   </form>
                 ) : null}
 
-                {isAdmin ? (
+                {canEdit ? (
                   <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <summary className="cursor-pointer text-sm font-medium text-brand-700">
                       Edit shipment
@@ -291,12 +297,14 @@ export default async function ShipmentsPage() {
                         </div>
                       </form>
 
-                      <form action={deleteShipmentAction}>
-                        <input name="id" type="hidden" value={shipment.id} />
-                        <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
-                          Delete Shipment
-                        </SubmitButton>
-                      </form>
+                      {isAdmin ? (
+                        <form action={deleteShipmentAction}>
+                          <input name="id" type="hidden" value={shipment.id} />
+                          <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                            Delete Shipment
+                          </SubmitButton>
+                        </form>
+                      ) : null}
                     </div>
                   </details>
                 ) : null}
@@ -331,7 +339,7 @@ export default async function ShipmentsPage() {
                 <tr className="border-b border-slate-100 align-top last:border-b-0" key={shipment.id}>
                   <td className="py-4">
                     <p className="font-medium text-slate-950">{shipment.container_number}</p>
-                    {isAdmin ? (
+                    {canEdit ? (
                       <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <summary className="cursor-pointer text-sm font-medium text-brand-700">
                           Edit shipment
@@ -415,12 +423,14 @@ export default async function ShipmentsPage() {
                             </div>
                           </form>
 
-                          <form action={deleteShipmentAction}>
-                            <input name="id" type="hidden" value={shipment.id} />
-                            <SubmitButton className="btn-danger" pendingLabel="Deleting...">
-                              Delete Shipment
-                            </SubmitButton>
-                          </form>
+                          {isAdmin ? (
+                            <form action={deleteShipmentAction}>
+                              <input name="id" type="hidden" value={shipment.id} />
+                              <SubmitButton className="btn-danger" pendingLabel="Deleting...">
+                                Delete Shipment
+                              </SubmitButton>
+                            </form>
+                          ) : null}
                         </div>
                       </details>
                     ) : null}
