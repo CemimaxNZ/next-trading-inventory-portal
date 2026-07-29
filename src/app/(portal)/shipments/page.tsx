@@ -215,11 +215,8 @@ export default async function ShipmentsPage() {
 
                 {canEdit ? (
                   <details className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-                    <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-700">
-                      <span>Edit shipment</span>
-                      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-brand-700">
-                        Update
-                      </span>
+                    <summary className="cursor-pointer whitespace-nowrap px-4 py-3 text-sm font-semibold text-brand-700">
+                      Edit shipment
                     </summary>
                     <div className="border-t border-slate-200 bg-slate-50/80 p-4">
                       <form action={updateShipmentAction} className="space-y-4">
@@ -345,11 +342,8 @@ export default async function ShipmentsPage() {
                     <p className="font-medium text-slate-950">{shipment.container_number}</p>
                     {canEdit ? (
                       <details className="mt-3 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-                        <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-700">
-                          <span>Edit shipment</span>
-                          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-brand-700">
-                            Update
-                          </span>
+                        <summary className="cursor-pointer whitespace-nowrap px-4 py-3 text-sm font-semibold text-brand-700">
+                          Edit shipment
                         </summary>
                         <div className="border-t border-slate-200 bg-slate-50/80 p-4">
                           <form action={updateShipmentAction} className="space-y-4">
