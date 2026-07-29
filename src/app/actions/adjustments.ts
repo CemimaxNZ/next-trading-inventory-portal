@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { ZodError } from "zod";
-import type { ProductRow } from "@/lib/database.types";
+import type { InventoryTransactionRow, ProductRow } from "@/lib/database.types";
 import { requirePortalUser } from "@/lib/session";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { stockAdjustmentBatchSchema } from "@/lib/validators";
@@ -140,7 +140,7 @@ export async function createStockAdjustmentAction(formData: FormData) {
     const transactions = parsed.items.map((item) => ({
       product_id: item.product_id,
       quantity: buildSignedQuantity(item),
-      type: (item.adjustment === "add" ? "manual_add" : "manual_remove") as const,
+      type: (item.adjustment === "add" ? "manual_add" : "manual_remove") as InventoryTransactionRow["type"],
       reason: parsed.reason,
       reference_table: "manual_adjustment_batch",
       reference_id: batchId,
