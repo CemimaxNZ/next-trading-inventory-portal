@@ -129,7 +129,7 @@ export function StockAdjustmentItemsFields({ products }: StockAdjustmentItemsFie
                 Quantity
               </label>
               <input
-                className="input-field"
+                className="input-field input-field-number"
                 id={`adjustment-quantity-${row.key}`}
                 min="1"
                 name="item_quantity"

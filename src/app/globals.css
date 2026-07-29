@@ -107,6 +107,17 @@ a {
     pointer-events: none;
   }
 
+  .input-field-number {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .input-field-number::-webkit-outer-spin-button,
+  .input-field-number::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
   .match-date-width-field {
     @apply min-w-0 w-full justify-self-start xl:max-w-[15.75rem];
   }

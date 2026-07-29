@@ -214,73 +214,78 @@ export default async function ShipmentsPage() {
                 ) : null}
 
                 {canEdit ? (
-                  <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                      Edit shipment
+                  <details className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
+                    <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-700">
+                      <span>Edit shipment</span>
+                      <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-brand-700">
+                        Update
+                      </span>
                     </summary>
-                    <div className="mt-4 space-y-4">
-                      <form action={updateShipmentAction} className="grid gap-4 sm:grid-cols-2">
+                    <div className="border-t border-slate-200 bg-slate-50/80 p-4">
+                      <form action={updateShipmentAction} className="space-y-4">
                         <input name="id" type="hidden" value={shipment.id} />
-                        <div>
-                          <label className="field-label" htmlFor={`container-mobile-${shipment.id}`}>
-                            Container Number
-                          </label>
-                          <input
-                            className="input-field"
-                            defaultValue={shipment.container_number}
-                            id={`container-mobile-${shipment.id}`}
-                            name="container_number"
-                            required
-                            type="text"
-                          />
-                        </div>
-                        <div>
-                          <label className="field-label" htmlFor={`etd-mobile-${shipment.id}`}>
-                            ETD
-                          </label>
-                          <div className="date-input-wrap">
+                        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                          <div>
+                            <label className="field-label" htmlFor={`container-mobile-${shipment.id}`}>
+                              Container Number
+                            </label>
                             <input
                               className="input-field"
-                              defaultValue={shipment.etd ?? ""}
-                              id={`etd-mobile-${shipment.id}`}
-                              name="etd"
-                              type="date"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="field-label" htmlFor={`eta-mobile-${shipment.id}`}>
-                            ETA
-                          </label>
-                          <div className="date-input-wrap">
-                            <input
-                              className="input-field"
-                              defaultValue={shipment.eta}
-                              id={`eta-mobile-${shipment.id}`}
-                              name="eta"
+                              defaultValue={shipment.container_number}
+                              id={`container-mobile-${shipment.id}`}
+                              name="container_number"
                               required
-                              type="date"
+                              type="text"
                             />
                           </div>
+                          <div>
+                            <label className="field-label" htmlFor={`etd-mobile-${shipment.id}`}>
+                              ETD
+                            </label>
+                            <div className="date-input-wrap">
+                              <input
+                                className="input-field"
+                                defaultValue={shipment.etd ?? ""}
+                                id={`etd-mobile-${shipment.id}`}
+                                name="etd"
+                                type="date"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="field-label" htmlFor={`eta-mobile-${shipment.id}`}>
+                              ETA
+                            </label>
+                            <div className="date-input-wrap">
+                              <input
+                                className="input-field"
+                                defaultValue={shipment.eta}
+                                id={`eta-mobile-${shipment.id}`}
+                                name="eta"
+                                required
+                                type="date"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="field-label" htmlFor={`status-mobile-${shipment.id}`}>
+                              Status
+                            </label>
+                            <select
+                              className="input-field"
+                              defaultValue={shipmentStatus}
+                              id={`status-mobile-${shipment.id}`}
+                              name="arrival_status"
+                            >
+                              {shipmentStatuses.map((status) => (
+                                <option key={status} value={status}>
+                                  {formatEnumLabel(status)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
-                        <div>
-                          <label className="field-label" htmlFor={`status-mobile-${shipment.id}`}>
-                            Status
-                          </label>
-                          <select
-                            className="input-field"
-                            defaultValue={shipmentStatus}
-                            id={`status-mobile-${shipment.id}`}
-                            name="arrival_status"
-                          >
-                            {shipmentStatuses.map((status) => (
-                              <option key={status} value={status}>
-                                {formatEnumLabel(status)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="sm:col-span-2">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
                           <ShipmentPurchaseOrderPicker
                             helperText="Search and add or remove linked purchase orders."
                             initialSelectedIds={getShipmentOrderIds(shipment)}
@@ -290,21 +295,20 @@ export default async function ShipmentsPage() {
                             orders={getAvailableOrderOptions(orders, shipments, shipment)}
                           />
                         </div>
-                        <div className="sm:col-span-2">
+                        <div className="space-y-3">
                           <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
                             Save Changes
                           </SubmitButton>
+                          {isAdmin ? (
+                            <form action={deleteShipmentAction}>
+                              <input name="id" type="hidden" value={shipment.id} />
+                              <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                                Delete Shipment
+                              </SubmitButton>
+                            </form>
+                          ) : null}
                         </div>
                       </form>
-
-                      {isAdmin ? (
-                        <form action={deleteShipmentAction}>
-                          <input name="id" type="hidden" value={shipment.id} />
-                          <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
-                            Delete Shipment
-                          </SubmitButton>
-                        </form>
-                      ) : null}
                     </div>
                   </details>
                 ) : null}
@@ -340,73 +344,78 @@ export default async function ShipmentsPage() {
                   <td className="py-4">
                     <p className="font-medium text-slate-950">{shipment.container_number}</p>
                     {canEdit ? (
-                      <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                          Edit shipment
+                      <details className="mt-3 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
+                        <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-700">
+                          <span>Edit shipment</span>
+                          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.2em] text-brand-700">
+                            Update
+                          </span>
                         </summary>
-                        <div className="mt-4 space-y-4">
-                          <form action={updateShipmentAction} className="grid gap-4 md:grid-cols-3">
+                        <div className="border-t border-slate-200 bg-slate-50/80 p-4">
+                          <form action={updateShipmentAction} className="space-y-4">
                             <input name="id" type="hidden" value={shipment.id} />
-                            <div>
-                              <label className="field-label" htmlFor={`container-${shipment.id}`}>
-                                Container Number
-                              </label>
-                              <input
-                                className="input-field"
-                                defaultValue={shipment.container_number}
-                                id={`container-${shipment.id}`}
-                                name="container_number"
-                                required
-                                type="text"
-                              />
-                            </div>
-                            <div>
-                              <label className="field-label" htmlFor={`etd-${shipment.id}`}>
-                                ETD
-                              </label>
-                              <div className="date-input-wrap">
+                            <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+                              <div>
+                                <label className="field-label" htmlFor={`container-${shipment.id}`}>
+                                  Container Number
+                                </label>
                                 <input
                                   className="input-field"
-                                  defaultValue={shipment.etd ?? ""}
-                                  id={`etd-${shipment.id}`}
-                                  name="etd"
-                                  type="date"
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <label className="field-label" htmlFor={`eta-${shipment.id}`}>
-                                ETA
-                              </label>
-                              <div className="date-input-wrap">
-                                <input
-                                  className="input-field"
-                                  defaultValue={shipment.eta}
-                                  id={`eta-${shipment.id}`}
-                                  name="eta"
+                                  defaultValue={shipment.container_number}
+                                  id={`container-${shipment.id}`}
+                                  name="container_number"
                                   required
-                                  type="date"
+                                  type="text"
                                 />
                               </div>
+                              <div>
+                                <label className="field-label" htmlFor={`etd-${shipment.id}`}>
+                                  ETD
+                                </label>
+                                <div className="date-input-wrap">
+                                  <input
+                                    className="input-field"
+                                    defaultValue={shipment.etd ?? ""}
+                                    id={`etd-${shipment.id}`}
+                                    name="etd"
+                                    type="date"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="field-label" htmlFor={`eta-${shipment.id}`}>
+                                  ETA
+                                </label>
+                                <div className="date-input-wrap">
+                                  <input
+                                    className="input-field"
+                                    defaultValue={shipment.eta}
+                                    id={`eta-${shipment.id}`}
+                                    name="eta"
+                                    required
+                                    type="date"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="field-label" htmlFor={`status-${shipment.id}`}>
+                                  Status
+                                </label>
+                                <select
+                                  className="input-field"
+                                  defaultValue={shipmentStatus}
+                                  id={`status-${shipment.id}`}
+                                  name="arrival_status"
+                                >
+                                  {shipmentStatuses.map((status) => (
+                                    <option key={status} value={status}>
+                                      {formatEnumLabel(status)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
-                            <div>
-                              <label className="field-label" htmlFor={`status-${shipment.id}`}>
-                                Status
-                              </label>
-                              <select
-                                className="input-field"
-                                defaultValue={shipmentStatus}
-                                id={`status-${shipment.id}`}
-                                name="arrival_status"
-                              >
-                                {shipmentStatuses.map((status) => (
-                                  <option key={status} value={status}>
-                                    {formatEnumLabel(status)}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="md:col-span-3">
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4">
                               <ShipmentPurchaseOrderPicker
                                 helperText="Search and add or remove linked purchase orders."
                                 initialSelectedIds={getShipmentOrderIds(shipment)}
@@ -416,21 +425,20 @@ export default async function ShipmentsPage() {
                                 orders={getAvailableOrderOptions(orders, shipments, shipment)}
                               />
                             </div>
-                            <div className="md:col-span-3">
-                              <SubmitButton className="btn-secondary" pendingLabel="Saving...">
+                            <div className="flex flex-wrap gap-3">
+                              <SubmitButton className="btn-secondary min-w-40" pendingLabel="Saving...">
                                 Save Changes
                               </SubmitButton>
+                              {isAdmin ? (
+                                <form action={deleteShipmentAction}>
+                                  <input name="id" type="hidden" value={shipment.id} />
+                                  <SubmitButton className="btn-danger" pendingLabel="Deleting...">
+                                    Delete Shipment
+                                  </SubmitButton>
+                                </form>
+                              ) : null}
                             </div>
                           </form>
-
-                          {isAdmin ? (
-                            <form action={deleteShipmentAction}>
-                              <input name="id" type="hidden" value={shipment.id} />
-                              <SubmitButton className="btn-danger" pendingLabel="Deleting...">
-                                Delete Shipment
-                              </SubmitButton>
-                            </form>
-                          ) : null}
                         </div>
                       </details>
                     ) : null}
