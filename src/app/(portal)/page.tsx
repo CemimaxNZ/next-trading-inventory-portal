@@ -3,8 +3,17 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type {
   ProductRow,
+  PurchaseOrderItemRow,
+  PurchaseOrderRow,
   ShipmentRow,
 } from "@/lib/database.types";
+import {
+  applyComputedInTransitToProducts,
+  buildLegacyPurchaseOrderItems,
+  buildProductInTransitMap,
+  type LegacyPurchaseOrderLike,
+  type PurchaseOrderItemLike,
+} from "@/lib/purchase-orders";
 import { requirePortalUser } from "@/lib/session";
 
 export default async function DashboardPage() {
@@ -13,14 +22,31 @@ export default async function DashboardPage() {
   const [
     { data: productsData },
     { data: shipmentsData },
+    { data: purchaseOrdersData },
+    { data: orderItemsData, error: orderItemsError },
   ] = await Promise.all([
     supabase.from("products").select("*").order("name"),
     supabase.from("shipments").select("*"),
+    supabase.from("purchase_orders").select("id, status"),
+    supabase.from("purchase_order_items").select("purchase_order_id, product_id, quantity"),
   ]);
 
   const products = (productsData ?? []) as ProductRow[];
   const shipments = (shipmentsData ?? []) as ShipmentRow[];
-  const lowStockProducts = products.filter(
+  const purchaseOrders = (purchaseOrdersData ?? []) as LegacyPurchaseOrderLike[];
+  const orderItems = (orderItemsData ?? []) as PurchaseOrderItemRow[];
+  const fallbackItems: PurchaseOrderItemLike[] = orderItemsError
+    ? purchaseOrders.flatMap((purchaseOrder) => buildLegacyPurchaseOrderItems(purchaseOrder))
+    : orderItems;
+  const inTransitByProductId = buildProductInTransitMap(
+    purchaseOrders as Pick<PurchaseOrderRow, "id" | "status">[],
+    fallbackItems,
+  );
+  const productsWithComputedInTransit = applyComputedInTransitToProducts(
+    products,
+    inTransitByProductId,
+  );
+  const lowStockProducts = productsWithComputedInTransit.filter(
     (product) => product.current_stock <= product.low_stock_warning_level,
   );
   const visibleLowStockProducts = lowStockProducts.slice(0, 5);
