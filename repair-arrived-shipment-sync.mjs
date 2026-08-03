@@ -49,6 +49,32 @@ function groupOrderItemsByPurchaseOrder(orderItems) {
   return grouped;
 }
 
+function buildExistingInTransitTotals({
+  orderItems,
+  statusByPurchaseOrderId,
+  purchaseOrderId,
+  productIds,
+}) {
+  const productIdSet = new Set(productIds);
+  const totals = new Map();
+
+  for (const item of orderItems) {
+    if (item.purchase_order_id === purchaseOrderId || !productIdSet.has(item.product_id)) {
+      continue;
+    }
+
+    const status = statusByPurchaseOrderId.get(item.purchase_order_id);
+
+    if (!status || !IN_TRANSIT_STATUSES.has(status)) {
+      continue;
+    }
+
+    totals.set(item.product_id, (totals.get(item.product_id) ?? 0) + item.quantity);
+  }
+
+  return totals;
+}
+
 async function main() {
   const envPath = path.join(process.cwd(), ".env.local");
 
@@ -126,6 +152,9 @@ async function main() {
   const orderItems = orderItemsData ?? [];
   const itemsByPurchaseOrderId = groupOrderItemsByPurchaseOrder(orderItems);
   const productIds = [...new Set(orderItems.map((item) => item.product_id))];
+  const purchaseOrderStatusById = new Map(
+    purchaseOrders.map((purchaseOrder) => [purchaseOrder.id, purchaseOrder.status]),
+  );
 
   const { data: productsData, error: productsError } = await supabase
     .from("products")
@@ -134,6 +163,35 @@ async function main() {
 
   if (productsError) {
     throw new Error(`Could not load products: ${productsError.message}`);
+  }
+
+  const { data: relatedOrderItemsData, error: relatedOrderItemsError } = await supabase
+    .from("purchase_order_items")
+    .select("purchase_order_id, product_id, quantity")
+    .in("product_id", productIds);
+
+  if (relatedOrderItemsError) {
+    throw new Error(`Could not load related in-transit order items: ${relatedOrderItemsError.message}`);
+  }
+
+  const relatedOrderItems = relatedOrderItemsData ?? [];
+  const relatedPurchaseOrderIds = [
+    ...new Set(relatedOrderItems.map((item) => item.purchase_order_id).filter(Boolean)),
+  ];
+
+  if (relatedPurchaseOrderIds.length > 0) {
+    const { data: relatedPurchaseOrdersData, error: relatedPurchaseOrdersError } = await supabase
+      .from("purchase_orders")
+      .select("id, status")
+      .in("id", relatedPurchaseOrderIds);
+
+    if (relatedPurchaseOrdersError) {
+      throw new Error(`Could not load related purchase orders: ${relatedPurchaseOrdersError.message}`);
+    }
+
+    for (const purchaseOrder of relatedPurchaseOrdersData ?? []) {
+      purchaseOrderStatusById.set(purchaseOrder.id, purchaseOrder.status);
+    }
   }
 
   const productMap = new Map((productsData ?? []).map((product) => [product.id, { ...product }]));
@@ -147,6 +205,13 @@ async function main() {
       continue;
     }
 
+    const recalculatedInTransitTotals = buildExistingInTransitTotals({
+      orderItems: relatedOrderItems,
+      statusByPurchaseOrderId: purchaseOrderStatusById,
+      purchaseOrderId: purchaseOrder.id,
+      productIds: items.map((item) => item.product_id),
+    });
+
     for (const item of items) {
       const product = productMap.get(item.product_id);
 
@@ -155,13 +220,7 @@ async function main() {
       }
 
       const nextCurrentStock = product.current_stock + item.quantity;
-      const nextInTransitStock = product.in_transit_stock - item.quantity;
-
-      if (nextInTransitStock < 0) {
-        throw new Error(
-          `Could not update PO ${purchaseOrder.po_number}: product ${product.name} would end up with negative in-transit stock.`,
-        );
-      }
+      const nextInTransitStock = recalculatedInTransitTotals.get(item.product_id) ?? 0;
 
       const { error: productUpdateError } = await supabase
         .from("products")
@@ -191,6 +250,8 @@ async function main() {
     if (purchaseOrderUpdateError) {
       throw new Error(`Could not update PO ${purchaseOrder.po_number}: ${purchaseOrderUpdateError.message}`);
     }
+
+    purchaseOrderStatusById.set(purchaseOrder.id, "arrived");
 
     const transactionRows = items.map((item) => ({
       product_id: item.product_id,
