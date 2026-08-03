@@ -92,6 +92,12 @@ export default async function ShipmentsPage() {
   const isAdmin = canManageOrders(profile.role);
   const canUpdateStatus = canUpdateOperationalStatus(profile.role);
   const today = new Date().toISOString().slice(0, 10);
+  const activeShipments = shipments.filter(
+    (shipment) => getVisibleShipmentStatus(shipment.arrival_status) !== "arrived",
+  );
+  const historyShipments = shipments.filter(
+    (shipment) => getVisibleShipmentStatus(shipment.arrival_status) === "arrived",
+  );
 
   return (
     <>
@@ -161,13 +167,23 @@ export default async function ShipmentsPage() {
         </SectionCard>
       ) : null}
 
-      <SectionCard
-        className="relative z-0"
-        description="Changing a shipment to Arrived automatically moves units from in-transit stock into current stock."
-        title="Shipment List"
-      >
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(320px,0.95fr)]">
+        <SectionCard
+          className="relative z-0"
+          description="Changing a shipment to Arrived automatically moves units from in-transit stock into current stock."
+          title="Shipment List"
+        >
+        <div className="mb-4 text-sm text-slate-500">
+          Active {activeShipments.length} • History {historyShipments.length}
+        </div>
+
         <div className="space-y-4 md:hidden">
-          {shipments.map((shipment) => {
+          {activeShipments.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+              No active shipments right now.
+            </div>
+          ) : (
+            activeShipments.map((shipment) => {
             const shipmentStatus = getVisibleShipmentStatus(shipment.arrival_status);
             return (
               <article
@@ -311,7 +327,8 @@ export default async function ShipmentsPage() {
                 ) : null}
               </article>
             );
-          })}
+            })
+          )}
         </div>
 
         <div className="hidden overflow-x-auto md:block">
@@ -333,7 +350,7 @@ export default async function ShipmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {shipments.map((shipment) => {
+              {activeShipments.map((shipment) => {
                 const shipmentStatus = getVisibleShipmentStatus(shipment.arrival_status);
 
                 return (
@@ -469,10 +486,82 @@ export default async function ShipmentsPage() {
                 </tr>
                 );
               })}
+              {activeShipments.length === 0 ? (
+                <tr>
+                  <td className="py-6 text-sm text-slate-500" colSpan={5}>
+                    No active shipments right now.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
-      </SectionCard>
+        </SectionCard>
+
+        <SectionCard
+          description="Arrived shipments are archived here for quick reference."
+          title="History"
+        >
+          <div className="mb-4 text-sm text-slate-500">Arrived shipments: {historyShipments.length}</div>
+
+          <div className="space-y-3">
+            {historyShipments.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+                No arrived shipments yet.
+              </div>
+            ) : (
+              historyShipments.map((shipment) => {
+                const shipmentStatus = getVisibleShipmentStatus(shipment.arrival_status);
+
+                return (
+                  <article className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm" key={shipment.id}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950">{shipment.container_number}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          ETA {formatDate(shipment.eta)}
+                        </p>
+                      </div>
+                      <StatusBadge value={shipmentStatus} />
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">ETD</p>
+                        <p className="mt-1 text-sm text-slate-700">
+                          {shipment.etd ? formatDate(shipment.etd) : "Not specified"}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
+                          Linked PO
+                        </p>
+                        <div className="mt-2">{getShipmentLinkedPoDisplay(shipment, orderMap)}</div>
+                      </div>
+                    </div>
+
+                    {canUpdateStatus ? (
+                      <form action={updateShipmentStatusAction} className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <input name="id" type="hidden" value={shipment.id} />
+                        <select className="input-field min-w-0 flex-1 py-2" defaultValue={shipmentStatus} name="status">
+                          {shipmentStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {formatEnumLabel(status)}
+                            </option>
+                          ))}
+                        </select>
+                        <SubmitButton className="btn-secondary justify-center" pendingLabel="Saving...">
+                          Update
+                        </SubmitButton>
+                      </form>
+                    ) : null}
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </SectionCard>
+      </div>
     </>
   );
 }
