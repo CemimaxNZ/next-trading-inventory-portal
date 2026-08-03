@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { updatePurchaseOrderStatusWithoutRpc } from "@/app/actions/purchase-orders";
 import { requirePortalUser } from "@/lib/session";
 import { normalizePurchaseOrderStatus } from "@/lib/purchase-orders";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -91,6 +92,66 @@ async function markLinkedPurchaseOrdersShipped(
   }
 }
 
+async function markLinkedPurchaseOrdersArrived(
+  supabase: PortalSupabaseClient,
+  linkedPurchaseOrderIds: string[],
+  performedBy: string,
+) {
+  if (linkedPurchaseOrderIds.length === 0) {
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .select("id, status")
+    .in("id", linkedPurchaseOrderIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const orders = (data ?? []) as Pick<PurchaseOrderRow, "id" | "status">[];
+
+  for (const order of orders) {
+    if (normalizePurchaseOrderStatus(order.status) === "arrived") {
+      continue;
+    }
+
+    await updatePurchaseOrderStatusWithoutRpc({
+      purchaseOrderId: order.id,
+      status: "arrived",
+      performedBy,
+    });
+  }
+}
+
+function shipmentHasArrived(status: ShipmentRow["arrival_status"]) {
+  return status === "arrived" || status === "completed";
+}
+
+async function syncLinkedPurchaseOrdersForShipment({
+  supabase,
+  linkedPurchaseOrderIds,
+  status,
+  performedBy,
+  shipLinkedPurchaseOrders = false,
+}: {
+  supabase: PortalSupabaseClient;
+  linkedPurchaseOrderIds: string[];
+  status: ShipmentRow["arrival_status"];
+  performedBy: string;
+  shipLinkedPurchaseOrders?: boolean;
+}) {
+  if (shipmentHasArrived(status)) {
+    await markLinkedPurchaseOrdersArrived(supabase, linkedPurchaseOrderIds, performedBy);
+    return;
+  }
+
+  if (shipLinkedPurchaseOrders || status === "at_sea") {
+    await markLinkedPurchaseOrdersShipped(supabase, linkedPurchaseOrderIds);
+  }
+}
+
 export async function createShipmentAction(formData: FormData) {
   const { supabase, profile } = await requirePortalUser("operator");
   const adminClient = createAdminSupabaseClient();
@@ -122,16 +183,24 @@ export async function createShipmentAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  await markLinkedPurchaseOrdersShipped(supabase, parsed.linked_purchase_order_ids);
+  await syncLinkedPurchaseOrdersForShipment({
+    supabase,
+    linkedPurchaseOrderIds: parsed.linked_purchase_order_ids,
+    status: parsed.arrival_status,
+    performedBy: profile.id,
+    shipLinkedPurchaseOrders: true,
+  });
 
   revalidatePath("/");
   revalidatePath("/purchase-orders");
+  revalidatePath("/products/cemimax");
+  revalidatePath("/products/accessories");
   revalidatePath("/shipments");
   redirect("/shipments");
 }
 
 export async function updateShipmentAction(formData: FormData) {
-  const { supabase } = await requirePortalUser("operator");
+  const { supabase, profile } = await requirePortalUser("operator");
   const shipments = tableMutation(supabase, "shipments");
   const id = String(formData.get("id") ?? "");
   const parsed = shipmentSchema.parse({
@@ -162,16 +231,24 @@ export async function updateShipmentAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  await markLinkedPurchaseOrdersShipped(supabase, parsed.linked_purchase_order_ids);
+  await syncLinkedPurchaseOrdersForShipment({
+    supabase,
+    linkedPurchaseOrderIds: parsed.linked_purchase_order_ids,
+    status: parsed.arrival_status,
+    performedBy: profile.id,
+    shipLinkedPurchaseOrders: true,
+  });
 
   revalidatePath("/");
   revalidatePath("/purchase-orders");
+  revalidatePath("/products/cemimax");
+  revalidatePath("/products/accessories");
   revalidatePath("/shipments");
   redirect("/shipments");
 }
 
 export async function updateShipmentStatusAction(formData: FormData) {
-  const { supabase } = await requirePortalUser("operator");
+  const { supabase, profile } = await requirePortalUser("operator");
   const runRpc = rpcMutation(supabase);
   const parsed = shipmentStatusSchema.parse({
     id: String(formData.get("id") ?? ""),
@@ -187,25 +264,27 @@ export async function updateShipmentStatusAction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  if (parsed.status === "at_sea") {
-    const { data: shipmentData, error: shipmentError } = await supabase
-      .from("shipments")
-      .select("id, linked_purchase_order_id, linked_purchase_order_ids")
-      .eq("id", parsed.id)
-      .single();
+  const { data: shipmentData, error: shipmentError } = await supabase
+    .from("shipments")
+    .select("id, arrival_status, linked_purchase_order_id, linked_purchase_order_ids")
+    .eq("id", parsed.id)
+    .single();
 
-    if (shipmentError) {
-      throw new Error(shipmentError.message);
-    }
-
-    await markLinkedPurchaseOrdersShipped(
-      supabase,
-      getShipmentOrderIds(shipmentData as ShipmentLinkRecord),
-    );
+  if (shipmentError) {
+    throw new Error(shipmentError.message);
   }
+
+  await syncLinkedPurchaseOrdersForShipment({
+    supabase,
+    linkedPurchaseOrderIds: getShipmentOrderIds(shipmentData as ShipmentLinkRecord),
+    status: parsed.status,
+    performedBy: profile.id,
+  });
 
   revalidatePath("/");
   revalidatePath("/purchase-orders");
+  revalidatePath("/products/cemimax");
+  revalidatePath("/products/accessories");
   revalidatePath("/shipments");
 }
 

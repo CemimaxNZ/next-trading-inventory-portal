@@ -42,6 +42,8 @@ type LegacyPurchaseOrderRow = PurchaseOrderRow & {
 function revalidatePurchaseOrderPaths() {
   revalidatePath("/");
   revalidatePath("/purchase-orders");
+  revalidatePath("/products/cemimax");
+  revalidatePath("/products/accessories");
   revalidatePath("/shipments");
 }
 
@@ -649,7 +651,7 @@ async function savePurchaseOrderWithoutRpc({
   return savedOrder;
 }
 
-async function updatePurchaseOrderStatusWithoutRpc({
+export async function updatePurchaseOrderStatusWithoutRpc({
   purchaseOrderId,
   status,
   performedBy,
