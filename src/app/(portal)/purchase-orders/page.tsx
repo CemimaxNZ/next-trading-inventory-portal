@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   createPurchaseOrderAction,
   deletePurchaseOrderAction,
@@ -226,11 +227,15 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
         </SectionCard>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(320px,0.95fr)]">
-        <SectionCard
-          description="Change an order to Arrived to automatically increase current stock and log a transaction."
-          title="Purchase Order List"
-        >
+      <SectionCard
+        description="Change an order to Arrived to automatically increase current stock and log a transaction."
+        headerAside={(
+          <Link className="btn-secondary whitespace-nowrap" href="/purchase-orders/history">
+            History ({historyPurchaseOrders.length})
+          </Link>
+        )}
+        title="Purchase Order List"
+      >
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <form className="relative max-w-xl flex-1" method="get">
               {highlightedOrderId ? <input name="highlight" type="hidden" value={highlightedOrderId} /> : null}
@@ -245,7 +250,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
               />
             </form>
             <p className="text-sm text-slate-500 lg:text-right">
-              Active {activePurchaseOrders.length} • History {historyPurchaseOrders.length}
+              Active purchase orders: {activePurchaseOrders.length}
             </p>
           </div>
 
@@ -655,96 +660,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
               </tbody>
             </table>
           </div>
-        </SectionCard>
-
-        <SectionCard
-          description="Arrived purchase orders are archived here so your active list stays shorter."
-          title="History"
-        >
-          <div className="mb-4 text-sm text-slate-500">Arrived purchase orders: {historyPurchaseOrders.length}</div>
-
-          <div className="space-y-3">
-            {historyPurchaseOrders.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-                {query ? "No arrived purchase orders match that product or SKU." : "No arrived purchase orders yet."}
-              </div>
-            ) : (
-              historyPurchaseOrders.map((purchaseOrder) => {
-                const items = orderItemsMap.get(purchaseOrder.id) ?? [];
-                const visibleItems = items.filter((item) =>
-                  matchesPurchaseOrderItemQuery(item, query, productMap),
-                );
-                const quantity = query
-                  ? visibleItems.reduce((sum, item) => sum + item.quantity, 0)
-                  : (totalQuantityByOrder.get(purchaseOrder.id) ?? 0);
-                const displayStatus = normalizePurchaseOrderStatus(purchaseOrder.status);
-
-                return (
-                  <article
-                    className={`scroll-mt-24 rounded-3xl border p-4 shadow-sm transition ${
-                      highlightedOrderId === purchaseOrder.id
-                        ? "border-brand-300 bg-brand-50/50 ring-2 ring-brand-100"
-                        : "border-slate-200 bg-white"
-                    }`}
-                    data-po-anchor={purchaseOrder.id}
-                    key={purchaseOrder.id}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-950">{purchaseOrder.po_number}</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {purchaseOrder.supplier} • {formatDate(purchaseOrder.order_date)}
-                        </p>
-                      </div>
-                      <StatusBadge value={displayStatus} />
-                    </div>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl bg-slate-50 px-3 py-3">
-                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Quantity</p>
-                        <p className="mt-1 text-sm font-semibold text-slate-950">{quantity}</p>
-                      </div>
-                      <div className="rounded-2xl bg-slate-50 px-3 py-3">
-                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Products</p>
-                        <div className="mt-1 space-y-1 text-sm text-slate-700">
-                          {(visibleItems.length > 0 ? visibleItems : items.slice(0, 3)).map((item) => {
-                            const product = productMap.get(item.product_id);
-
-                            return (
-                              <p key={item.id}>
-                                {product?.name ?? "Unknown product"} • Qty {item.quantity}
-                              </p>
-                            );
-                          })}
-                          {(query ? visibleItems.length : items.length) === 0 ? (
-                            <p className="text-slate-500">No product lines saved yet.</p>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-
-                    {canUpdateStatus ? (
-                      <form action={updatePurchaseOrderStatusAction} className="mt-4 flex flex-col gap-2 sm:flex-row">
-                        <input name="id" type="hidden" value={purchaseOrder.id} />
-                        <select className="input-field min-w-0 flex-1 py-2" defaultValue={displayStatus} name="status">
-                          {purchaseOrderStatuses.map((status) => (
-                            <option key={status} value={status}>
-                              {status.replace("_", " ").toUpperCase()}
-                            </option>
-                          ))}
-                        </select>
-                        <SubmitButton className="btn-secondary justify-center" pendingLabel="Saving...">
-                          Update
-                        </SubmitButton>
-                      </form>
-                    ) : null}
-                  </article>
-                );
-              })
-            )}
-          </div>
-        </SectionCard>
-      </div>
+      </SectionCard>
     </>
   );
 }
