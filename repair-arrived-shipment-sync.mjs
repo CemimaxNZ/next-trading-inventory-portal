@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
+const IN_TRANSIT_STATUSES = new Set(["paid", "ready", "shipped"]);
+
 function loadEnvFile(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
   const entries = [];
@@ -33,6 +35,18 @@ function getShipmentOrderIds(shipment) {
   }
 
   return shipment.linked_purchase_order_id ? [shipment.linked_purchase_order_id] : [];
+}
+
+function groupOrderItemsByPurchaseOrder(orderItems) {
+  const grouped = new Map();
+
+  for (const item of orderItems) {
+    const existing = grouped.get(item.purchase_order_id) ?? [];
+    existing.push(item);
+    grouped.set(item.purchase_order_id, existing);
+  }
+
+  return grouped;
 }
 
 async function main() {
@@ -91,16 +105,109 @@ async function main() {
     return;
   }
 
+  const repairableOrders = notArrivedOrders.filter((purchaseOrder) =>
+    IN_TRANSIT_STATUSES.has(purchaseOrder.status),
+  );
+
+  if (repairableOrders.length === 0) {
+    console.log("No linked purchase orders are in a repairable in-transit status.");
+    return;
+  }
+
+  const { data: orderItemsData, error: orderItemsError } = await supabase
+    .from("purchase_order_items")
+    .select("purchase_order_id, product_id, quantity")
+    .in("purchase_order_id", repairableOrders.map((purchaseOrder) => purchaseOrder.id));
+
+  if (orderItemsError) {
+    throw new Error(`Could not load purchase order items: ${orderItemsError.message}`);
+  }
+
+  const orderItems = orderItemsData ?? [];
+  const itemsByPurchaseOrderId = groupOrderItemsByPurchaseOrder(orderItems);
+  const productIds = [...new Set(orderItems.map((item) => item.product_id))];
+
+  const { data: productsData, error: productsError } = await supabase
+    .from("products")
+    .select("id, name, current_stock, in_transit_stock")
+    .in("id", productIds);
+
+  if (productsError) {
+    throw new Error(`Could not load products: ${productsError.message}`);
+  }
+
+  const productMap = new Map((productsData ?? []).map((product) => [product.id, { ...product }]));
   const updatedPoNumbers = [];
 
-  for (const purchaseOrder of notArrivedOrders) {
-    const { error } = await supabase.rpc("update_purchase_order_status", {
-      p_purchase_order_id: purchaseOrder.id,
-      p_status: "arrived",
-    });
+  for (const purchaseOrder of repairableOrders) {
+    const items = itemsByPurchaseOrderId.get(purchaseOrder.id) ?? [];
 
-    if (error) {
-      throw new Error(`Could not update PO ${purchaseOrder.po_number}: ${error.message}`);
+    if (items.length === 0) {
+      console.log(`Skipped ${purchaseOrder.po_number}: no purchase order items were found.`);
+      continue;
+    }
+
+    for (const item of items) {
+      const product = productMap.get(item.product_id);
+
+      if (!product) {
+        throw new Error(`Could not find product ${item.product_id} for PO ${purchaseOrder.po_number}.`);
+      }
+
+      const nextCurrentStock = product.current_stock + item.quantity;
+      const nextInTransitStock = product.in_transit_stock - item.quantity;
+
+      if (nextInTransitStock < 0) {
+        throw new Error(
+          `Could not update PO ${purchaseOrder.po_number}: product ${product.name} would end up with negative in-transit stock.`,
+        );
+      }
+
+      const { error: productUpdateError } = await supabase
+        .from("products")
+        .update({
+          current_stock: nextCurrentStock,
+          in_transit_stock: nextInTransitStock,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", product.id);
+
+      if (productUpdateError) {
+        throw new Error(`Could not update product ${product.name}: ${productUpdateError.message}`);
+      }
+
+      product.current_stock = nextCurrentStock;
+      product.in_transit_stock = nextInTransitStock;
+    }
+
+    const { error: purchaseOrderUpdateError } = await supabase
+      .from("purchase_orders")
+      .update({
+        status: "arrived",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", purchaseOrder.id);
+
+    if (purchaseOrderUpdateError) {
+      throw new Error(`Could not update PO ${purchaseOrder.po_number}: ${purchaseOrderUpdateError.message}`);
+    }
+
+    const transactionRows = items.map((item) => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      type: "purchase_order_arrived",
+      reason: `PO ${purchaseOrder.po_number} marked as arrived`,
+      reference_table: "purchase_orders",
+      reference_id: purchaseOrder.id,
+      performed_by: null,
+    }));
+
+    const { error: transactionError } = await supabase
+      .from("inventory_transactions")
+      .insert(transactionRows);
+
+    if (transactionError) {
+      throw new Error(`Could not record transactions for PO ${purchaseOrder.po_number}: ${transactionError.message}`);
     }
 
     updatedPoNumbers.push(purchaseOrder.po_number);
