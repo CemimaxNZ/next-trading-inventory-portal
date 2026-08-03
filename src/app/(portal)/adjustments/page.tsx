@@ -1,4 +1,7 @@
-import { createStockAdjustmentAction } from "@/app/actions/adjustments";
+import {
+  createStockAdjustmentAction,
+  updateStockAdjustmentHistoryAction,
+} from "@/app/actions/adjustments";
 import { StockAdjustmentItemsFields } from "@/components/adjustments/stock-adjustment-items-fields";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -8,9 +11,10 @@ import type {
   ProductRow,
   ProfileRow,
 } from "@/lib/database.types";
-import { canAdjustStock } from "@/lib/permissions";
+import { canAdjustStock, canManageAdjustmentHistory } from "@/lib/permissions";
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatSignedQuantity } from "@/lib/utils";
+import { Fragment } from "react";
 
 type AdjustmentsPageProps = {
   searchParams?: Promise<{
@@ -45,6 +49,7 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
   const productMap = new Map(products.map((product) => [product.id, product]));
   const profileMap = new Map(profiles.map((entry) => [entry.id, entry]));
   const canAdjust = canAdjustStock(profile.role);
+  const canManageHistory = canManageAdjustmentHistory(profile.role);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -168,6 +173,99 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
                     </p>
                   </div>
                 </div>
+
+                {canManageHistory ? (
+                  <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                      Edit adjustment
+                    </summary>
+                    <div className="mt-4">
+                      <form action={updateStockAdjustmentHistoryAction} className="space-y-4">
+                        <input name="id" type="hidden" value={transaction.id} />
+                        <div className="grid gap-4">
+                          <div>
+                            <label className="field-label" htmlFor={`adjustment-date-mobile-${transaction.id}`}>
+                              Adjustment Date
+                            </label>
+                            <div className="date-input-wrap">
+                              <input
+                                className="input-field"
+                                defaultValue={transaction.created_at.slice(0, 10)}
+                                id={`adjustment-date-mobile-${transaction.id}`}
+                                name="effective_date"
+                                required
+                                type="date"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="field-label" htmlFor={`adjustment-product-mobile-${transaction.id}`}>
+                              Product
+                            </label>
+                            <select
+                              className="input-field"
+                              defaultValue={transaction.product_id}
+                              id={`adjustment-product-mobile-${transaction.id}`}
+                              name="product_id"
+                            >
+                              {products.map((product) => (
+                                <option key={product.id} value={product.id}>
+                                  {product.name} ({product.sku})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className="field-label" htmlFor={`adjustment-type-mobile-${transaction.id}`}>
+                                Adjustment Type
+                              </label>
+                              <select
+                                className="input-field"
+                                defaultValue={transaction.quantity >= 0 ? "add" : "remove"}
+                                id={`adjustment-type-mobile-${transaction.id}`}
+                                name="adjustment"
+                              >
+                                <option value="add">Add Stock</option>
+                                <option value="remove">Remove Stock</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="field-label" htmlFor={`adjustment-quantity-mobile-${transaction.id}`}>
+                                Quantity
+                              </label>
+                              <input
+                                className="input-field input-field-number"
+                                defaultValue={Math.abs(transaction.quantity)}
+                                id={`adjustment-quantity-mobile-${transaction.id}`}
+                                min="1"
+                                name="quantity"
+                                required
+                                type="number"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="field-label" htmlFor={`adjustment-reason-mobile-${transaction.id}`}>
+                              Reason
+                            </label>
+                            <input
+                              className="input-field"
+                              defaultValue={transaction.reason}
+                              id={`adjustment-reason-mobile-${transaction.id}`}
+                              name="reason"
+                              required
+                              type="text"
+                            />
+                          </div>
+                        </div>
+                        <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
+                          Save Changes
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </details>
+                ) : null}
               </article>
             ))
           )}
@@ -193,30 +291,126 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
             </thead>
             <tbody>
               {transactions.map((transaction) => (
-                <tr className="border-b border-slate-100 last:border-b-0" key={transaction.id}>
-                  <td className="px-3 py-4 text-center text-slate-600">{formatDate(transaction.created_at)}</td>
-                  <td className="py-4">
-                    <p className="font-medium text-slate-950">
-                      {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
-                    </p>
-                  </td>
-                  <td
-                    className={`px-3 py-4 text-center font-semibold ${
-                      transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
-                    }`}
-                  >
-                    {formatSignedQuantity(transaction.quantity)}
-                  </td>
-                  <td className="py-4 text-slate-600">{transaction.reason}</td>
-                  <td className="px-3 py-4 text-center text-slate-600">
-                    {transaction.performed_by
-                      ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
-                      : "System"}
-                  </td>
-                </tr>
+                <Fragment key={transaction.id}>
+                  <tr className={`${canManageHistory ? "border-b-0" : "border-b"} border-slate-100 last:border-b-0`}>
+                    <td className="px-3 py-4 text-center text-slate-600">{formatDate(transaction.created_at)}</td>
+                    <td className="py-4">
+                      <p className="font-medium text-slate-950">
+                        {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
+                      </p>
+                    </td>
+                    <td
+                      className={`px-3 py-4 text-center font-semibold ${
+                        transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
+                      }`}
+                    >
+                      {formatSignedQuantity(transaction.quantity)}
+                    </td>
+                    <td className="py-4 text-slate-600">{transaction.reason}</td>
+                    <td className="px-3 py-4 text-center text-slate-600">
+                      {transaction.performed_by
+                        ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
+                        : "System"}
+                    </td>
+                  </tr>
+                  {canManageHistory ? (
+                    <tr className="border-b border-slate-100 last:border-b-0">
+                      <td className="pb-4 pt-0" colSpan={5}>
+                        <details className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                          <summary className="cursor-pointer text-sm font-medium text-brand-700">
+                            Edit adjustment
+                          </summary>
+                          <div className="mt-5">
+                            <form action={updateStockAdjustmentHistoryAction} className="space-y-5">
+                              <input name="id" type="hidden" value={transaction.id} />
+                              <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-5">
+                                <div>
+                                  <label className="field-label" htmlFor={`adjustment-date-${transaction.id}`}>
+                                    Adjustment Date
+                                  </label>
+                                  <div className="date-input-wrap">
+                                    <input
+                                      className="input-field"
+                                      defaultValue={transaction.created_at.slice(0, 10)}
+                                      id={`adjustment-date-${transaction.id}`}
+                                      name="effective_date"
+                                      required
+                                      type="date"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="field-label" htmlFor={`adjustment-product-${transaction.id}`}>
+                                    Product
+                                  </label>
+                                  <select
+                                    className="input-field"
+                                    defaultValue={transaction.product_id}
+                                    id={`adjustment-product-${transaction.id}`}
+                                    name="product_id"
+                                  >
+                                    {products.map((product) => (
+                                      <option key={product.id} value={product.id}>
+                                        {product.name} ({product.sku})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="field-label" htmlFor={`adjustment-type-${transaction.id}`}>
+                                    Adjustment Type
+                                  </label>
+                                  <select
+                                    className="input-field"
+                                    defaultValue={transaction.quantity >= 0 ? "add" : "remove"}
+                                    id={`adjustment-type-${transaction.id}`}
+                                    name="adjustment"
+                                  >
+                                    <option value="add">Add Stock</option>
+                                    <option value="remove">Remove Stock</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="field-label" htmlFor={`adjustment-quantity-${transaction.id}`}>
+                                    Quantity
+                                  </label>
+                                  <input
+                                    className="input-field input-field-number"
+                                    defaultValue={Math.abs(transaction.quantity)}
+                                    id={`adjustment-quantity-${transaction.id}`}
+                                    min="1"
+                                    name="quantity"
+                                    required
+                                    type="number"
+                                  />
+                                </div>
+                                <div className="2xl:col-span-1 lg:col-span-2">
+                                  <label className="field-label" htmlFor={`adjustment-reason-${transaction.id}`}>
+                                    Reason
+                                  </label>
+                                  <input
+                                    className="input-field"
+                                    defaultValue={transaction.reason}
+                                    id={`adjustment-reason-${transaction.id}`}
+                                    name="reason"
+                                    required
+                                    type="text"
+                                  />
+                                </div>
+                              </div>
+                              <SubmitButton className="btn-secondary min-w-40" pendingLabel="Saving...">
+                                Save Changes
+                              </SubmitButton>
+                            </form>
+                          </div>
+                        </details>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))}
             </tbody>
           </table>

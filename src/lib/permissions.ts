@@ -41,3 +41,7 @@ export function canUpdateOperationalStatus(role: AppRole) {
 export function canAdjustStock(role: AppRole) {
   return hasAtLeastRole(role, "operator");
 }
+
+export function canManageAdjustmentHistory(role: AppRole) {
+  return role === "admin";
+}

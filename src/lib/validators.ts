@@ -113,6 +113,15 @@ export const stockAdjustmentBatchSchema = z.object({
     }),
 });
 
+export const stockAdjustmentHistoryUpdateSchema = z.object({
+  id: z.string().uuid(),
+  effective_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  reason: z.string().trim().min(4),
+  product_id: z.string().uuid(),
+  adjustment: z.enum(["add", "remove"]),
+  quantity: z.coerce.number().int().positive(),
+});
+
 export const userCreateSchema = z.object({
   identifier: z.string().trim().min(2),
   password: z.string().min(8),

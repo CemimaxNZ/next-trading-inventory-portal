@@ -7,7 +7,10 @@ import { ZodError } from "zod";
 import type { InventoryTransactionRow, ProductRow } from "@/lib/database.types";
 import { requirePortalUser } from "@/lib/session";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { stockAdjustmentBatchSchema } from "@/lib/validators";
+import {
+  stockAdjustmentBatchSchema,
+  stockAdjustmentHistoryUpdateSchema,
+} from "@/lib/validators";
 
 type StockAdjustmentItemInput = {
   product_id: string;
@@ -71,6 +74,10 @@ function getAdjustmentErrorMessage(error: unknown) {
 
 function buildSignedQuantity(item: StockAdjustmentItemInput) {
   return item.adjustment === "add" ? item.quantity : -item.quantity;
+}
+
+function buildSignedQuantityFromParts(adjustment: "add" | "remove", quantity: number) {
+  return adjustment === "add" ? quantity : -quantity;
 }
 
 export async function createStockAdjustmentAction(formData: FormData) {
@@ -154,6 +161,139 @@ export async function createStockAdjustmentAction(formData: FormData) {
 
     if (transactionsError) {
       throw new Error(transactionsError.message);
+    }
+
+    revalidatePath("/");
+    revalidatePath("/products");
+    revalidatePath("/adjustments");
+    revalidatePath("/transactions");
+    redirect("/adjustments");
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    redirectToAdjustmentsError(getAdjustmentErrorMessage(error));
+  }
+}
+
+export async function updateStockAdjustmentHistoryAction(formData: FormData) {
+  await requirePortalUser("admin");
+  const adminClient = createAdminSupabaseClient();
+
+  try {
+    const parsed = stockAdjustmentHistoryUpdateSchema.parse({
+      id: String(formData.get("id") ?? ""),
+      effective_date: String(formData.get("effective_date") ?? ""),
+      reason: String(formData.get("reason") ?? ""),
+      product_id: String(formData.get("product_id") ?? ""),
+      adjustment: String(formData.get("adjustment") ?? ""),
+      quantity: String(formData.get("quantity") ?? ""),
+    });
+
+    const { data: existingTransactionData, error: transactionError } = await adminClient
+      .from("inventory_transactions")
+      .select("*")
+      .eq("id", parsed.id)
+      .single();
+
+    if (transactionError) {
+      throw new Error(transactionError.message);
+    }
+
+    const existingTransaction = existingTransactionData as InventoryTransactionRow;
+
+    if (!["manual_add", "manual_remove"].includes(existingTransaction.type)) {
+      throw new Error("Only manual adjustment history can be edited here.");
+    }
+
+    const productIds = Array.from(new Set([existingTransaction.product_id, parsed.product_id]));
+    const { data: productsData, error: productsError } = await adminClient
+      .from("products")
+      .select("*")
+      .in("id", productIds);
+
+    if (productsError) {
+      throw new Error(productsError.message);
+    }
+
+    const products = (productsData ?? []) as ProductRow[];
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const existingProduct = productMap.get(existingTransaction.product_id);
+    const nextProduct = productMap.get(parsed.product_id);
+
+    if (!existingProduct || !nextProduct) {
+      throw new Error("The selected product could not be found.");
+    }
+
+    const oldSignedQuantity = existingTransaction.quantity;
+    const newSignedQuantity = buildSignedQuantityFromParts(parsed.adjustment, parsed.quantity);
+    const updatedAt = new Date().toISOString();
+
+    if (existingProduct.id === nextProduct.id) {
+      const revisedCurrentStock = existingProduct.current_stock - oldSignedQuantity + newSignedQuantity;
+
+      if (revisedCurrentStock < 0) {
+        throw new Error("This edit would make current stock negative.");
+      }
+
+      const { error: productUpdateError } = await adminClient
+        .from("products")
+        .update({
+          current_stock: revisedCurrentStock,
+          updated_at: updatedAt,
+        })
+        .eq("id", existingProduct.id);
+
+      if (productUpdateError) {
+        throw new Error(productUpdateError.message);
+      }
+    } else {
+      const existingProductStock = existingProduct.current_stock - oldSignedQuantity;
+      const nextProductStock = nextProduct.current_stock + newSignedQuantity;
+
+      if (existingProductStock < 0 || nextProductStock < 0) {
+        throw new Error("This edit would make current stock negative.");
+      }
+
+      const { error: revertProductError } = await adminClient
+        .from("products")
+        .update({
+          current_stock: existingProductStock,
+          updated_at: updatedAt,
+        })
+        .eq("id", existingProduct.id);
+
+      if (revertProductError) {
+        throw new Error(revertProductError.message);
+      }
+
+      const { error: applyProductError } = await adminClient
+        .from("products")
+        .update({
+          current_stock: nextProductStock,
+          updated_at: updatedAt,
+        })
+        .eq("id", nextProduct.id);
+
+      if (applyProductError) {
+        throw new Error(applyProductError.message);
+      }
+    }
+
+    const { error: updateTransactionError } = await adminClient
+      .from("inventory_transactions")
+      .update({
+        created_at: `${parsed.effective_date}T00:00:00.000Z`,
+        product_id: parsed.product_id,
+        quantity: newSignedQuantity,
+        reason: parsed.reason,
+        type: parsed.adjustment === "add" ? "manual_add" : "manual_remove",
+      })
+      .eq("id", parsed.id);
+
+    if (updateTransactionError) {
+      throw new Error(updateTransactionError.message);
     }
 
     revalidatePath("/");
