@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3456",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json"
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
+    "repair:arrived-shipments": "node repair-arrived-shipment-sync.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
