@@ -300,4 +300,5 @@ export async function deleteShipmentAction(formData: FormData) {
 
   revalidatePath("/");
   revalidatePath("/shipments");
+  revalidatePath("/shipments/history");
 }

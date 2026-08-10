@@ -316,16 +316,16 @@ export default async function ShipmentsPage() {
                           <SubmitButton className="btn-secondary w-full justify-center" pendingLabel="Saving...">
                             Save Changes
                           </SubmitButton>
-                          {isAdmin ? (
-                            <form action={deleteShipmentAction}>
-                              <input name="id" type="hidden" value={shipment.id} />
-                              <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
-                                Delete Shipment
-                              </SubmitButton>
-                            </form>
-                          ) : null}
                         </div>
                       </form>
+                      {isAdmin ? (
+                        <form action={deleteShipmentAction} className="mt-3">
+                          <input name="id" type="hidden" value={shipment.id} />
+                          <SubmitButton className="btn-danger w-full justify-center" pendingLabel="Deleting...">
+                            Delete Shipment
+                          </SubmitButton>
+                        </form>
+                      ) : null}
                     </div>
                   </details>
                 ) : null}
@@ -444,16 +444,16 @@ export default async function ShipmentsPage() {
                               <SubmitButton className="btn-secondary min-w-40" pendingLabel="Saving...">
                                 Save Changes
                               </SubmitButton>
-                              {isAdmin ? (
-                                <form action={deleteShipmentAction}>
-                                  <input name="id" type="hidden" value={shipment.id} />
-                                  <SubmitButton className="btn-danger" pendingLabel="Deleting...">
-                                    Delete Shipment
-                                  </SubmitButton>
-                                </form>
-                              ) : null}
                             </div>
                           </form>
+                          {isAdmin ? (
+                            <form action={deleteShipmentAction} className="mt-3">
+                              <input name="id" type="hidden" value={shipment.id} />
+                              <SubmitButton className="btn-danger" pendingLabel="Deleting...">
+                                Delete Shipment
+                              </SubmitButton>
+                            </form>
+                          ) : null}
                         </div>
                       </details>
                     ) : null}
