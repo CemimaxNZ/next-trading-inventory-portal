@@ -8,6 +8,7 @@ import {
 import { Search } from "lucide-react";
 import { PurchaseOrderItemsFields } from "@/components/purchase-orders/purchase-order-items-fields";
 import { PurchaseOrderHighlight } from "@/components/purchase-orders/purchase-order-highlight";
+import { AutoCloseDetails } from "@/components/forms/auto-close-details";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
@@ -346,10 +347,11 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                     ) : null}
 
                     {canEdit ? (
-                      <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                          Edit purchase order
-                        </summary>
+                      <AutoCloseDetails
+                        className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                        summaryClassName="cursor-pointer text-sm font-medium text-brand-700"
+                        title="Edit purchase order"
+                      >
                         <div className="mt-4 space-y-4">
                           <form action={updatePurchaseOrderAction} className="space-y-5">
                             <input name="id" type="hidden" value={purchaseOrder.id} />
@@ -437,7 +439,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                             </form>
                           ) : null}
                         </div>
-                      </details>
+                      </AutoCloseDetails>
                     ) : null}
                   </article>
                 );
@@ -550,10 +552,11 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                           }`}
                         >
                           <td className="pb-4 pt-0" colSpan={6}>
-                            <details className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                              <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                                Edit purchase order
-                              </summary>
+                            <AutoCloseDetails
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                              summaryClassName="cursor-pointer text-sm font-medium text-brand-700"
+                              title="Edit purchase order"
+                            >
                               <div className="mt-5 space-y-5">
                                 <form action={updatePurchaseOrderAction} className="space-y-5">
                                   <input name="id" type="hidden" value={purchaseOrder.id} />
@@ -643,7 +646,7 @@ export default async function PurchaseOrdersPage({ searchParams }: PurchaseOrder
                                   </form>
                                 ) : null}
                               </div>
-                            </details>
+                            </AutoCloseDetails>
                           </td>
                         </tr>
                       ) : null}

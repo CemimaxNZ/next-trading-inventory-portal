@@ -5,6 +5,7 @@ import {
   updateShipmentAction,
   updateShipmentStatusAction,
 } from "@/app/actions/shipments";
+import { AutoCloseDetails } from "@/components/forms/auto-close-details";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { ShipmentPurchaseOrderPicker } from "@/components/forms/shipment-purchase-order-picker";
 import { PageHeader } from "@/components/ui/page-header";
@@ -234,10 +235,11 @@ export default async function ShipmentsPage() {
                 ) : null}
 
                 {canEdit ? (
-                  <details className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-                    <summary className="cursor-pointer whitespace-nowrap px-4 py-3 text-sm font-semibold text-brand-700">
-                      Edit shipment
-                    </summary>
+                  <AutoCloseDetails
+                    className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm"
+                    summaryClassName="cursor-pointer whitespace-nowrap px-4 py-3 text-sm font-semibold text-brand-700"
+                    title="Edit shipment"
+                  >
                     <div className="border-t border-slate-200 bg-slate-50/80 p-4">
                       <form action={updateShipmentAction} className="space-y-4">
                         <input name="id" type="hidden" value={shipment.id} />
@@ -327,7 +329,7 @@ export default async function ShipmentsPage() {
                         </form>
                       ) : null}
                     </div>
-                  </details>
+                  </AutoCloseDetails>
                 ) : null}
               </article>
             );
@@ -362,10 +364,11 @@ export default async function ShipmentsPage() {
                   <td className="py-4">
                     <p className="font-medium text-slate-950">{shipment.container_number}</p>
                     {canEdit ? (
-                      <details className="mt-3 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm">
-                        <summary className="cursor-pointer whitespace-nowrap px-4 py-3 text-sm font-semibold text-brand-700">
-                          Edit shipment
-                        </summary>
+                      <AutoCloseDetails
+                        className="mt-3 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-sm"
+                        summaryClassName="cursor-pointer whitespace-nowrap px-4 py-3 text-sm font-semibold text-brand-700"
+                        title="Edit shipment"
+                      >
                         <div className="border-t border-slate-200 bg-slate-50/80 p-4">
                           <form action={updateShipmentAction} className="space-y-4">
                             <input name="id" type="hidden" value={shipment.id} />
@@ -455,7 +458,7 @@ export default async function ShipmentsPage() {
                             </form>
                           ) : null}
                         </div>
-                      </details>
+                      </AutoCloseDetails>
                     ) : null}
                   </td>
                   <td className="px-3 py-4 text-center text-slate-600">{shipment.etd ? formatDate(shipment.etd) : "Not specified"}</td>

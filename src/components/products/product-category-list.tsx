@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { AutoCloseDetails } from "@/components/forms/auto-close-details";
 import { SubmitButton } from "@/components/forms/submit-button";
 import type { ProductCategory, ProductRow } from "@/lib/database.types";
 import { productCategories, productCategoryMeta } from "@/lib/products";
@@ -123,10 +124,11 @@ export function ProductCategoryList({
                 </div>
 
                 {isAdmin ? (
-                  <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                      Edit product
-                    </summary>
+                  <AutoCloseDetails
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                    summaryClassName="cursor-pointer text-sm font-medium text-brand-700"
+                    title="Edit product"
+                  >
                     <div className="mt-4 space-y-4">
                       <form action={updateProductAction} className="grid gap-4">
                         <input name="id" type="hidden" value={product.id} />
@@ -215,7 +217,7 @@ export function ProductCategoryList({
                         </SubmitButton>
                       </form>
                     </div>
-                  </details>
+                  </AutoCloseDetails>
                 ) : null}
               </article>
             );
@@ -273,10 +275,11 @@ export function ProductCategoryList({
                   {isAdmin ? (
                     <tr className="border-b border-slate-100">
                       <td className="pb-4 pt-0" colSpan={6}>
-                        <details className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                          <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                            Edit product
-                          </summary>
+                        <AutoCloseDetails
+                          className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                          summaryClassName="cursor-pointer text-sm font-medium text-brand-700"
+                          title="Edit product"
+                        >
                           <div className="mt-5 space-y-5">
                             <form action={updateProductAction} className="space-y-5">
                               <input name="id" type="hidden" value={product.id} />
@@ -367,7 +370,7 @@ export function ProductCategoryList({
                               </SubmitButton>
                             </form>
                           </div>
-                        </details>
+                        </AutoCloseDetails>
                       </td>
                     </tr>
                   ) : null}

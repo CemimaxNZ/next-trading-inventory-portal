@@ -3,6 +3,7 @@ import {
   updateStockAdjustmentHistoryAction,
 } from "@/app/actions/adjustments";
 import { StockAdjustmentItemsFields } from "@/components/adjustments/stock-adjustment-items-fields";
+import { AutoCloseDetails } from "@/components/forms/auto-close-details";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
@@ -67,6 +68,7 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
 
       {canAdjust ? (
         <SectionCard
+          className="relative z-20 overflow-visible"
           description="Operators and admins can record controlled stock changes here."
           title="Create Adjustment"
         >
@@ -124,6 +126,7 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
       )}
 
       <SectionCard
+        className="relative z-0"
         description="Recent manual stock additions and removals."
         title="Adjustment History"
       >
@@ -175,10 +178,11 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
                 </div>
 
                 {canManageHistory ? (
-                  <details className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                      Edit adjustment
-                    </summary>
+                  <AutoCloseDetails
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                    summaryClassName="cursor-pointer text-sm font-medium text-brand-700"
+                    title="Edit adjustment"
+                  >
                     <div className="mt-4">
                       <form action={updateStockAdjustmentHistoryAction} className="space-y-4">
                         <input name="id" type="hidden" value={transaction.id} />
@@ -264,7 +268,7 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
                         </SubmitButton>
                       </form>
                     </div>
-                  </details>
+                  </AutoCloseDetails>
                 ) : null}
               </article>
             ))
@@ -319,10 +323,11 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
                   {canManageHistory ? (
                     <tr className="border-b border-slate-100 last:border-b-0">
                       <td className="pb-4 pt-0" colSpan={5}>
-                        <details className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                          <summary className="cursor-pointer text-sm font-medium text-brand-700">
-                            Edit adjustment
-                          </summary>
+                        <AutoCloseDetails
+                          className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                          summaryClassName="cursor-pointer text-sm font-medium text-brand-700"
+                          title="Edit adjustment"
+                        >
                           <div className="mt-5">
                             <form action={updateStockAdjustmentHistoryAction} className="space-y-5">
                               <input name="id" type="hidden" value={transaction.id} />
@@ -406,7 +411,7 @@ export default async function AdjustmentsPage({ searchParams }: AdjustmentsPageP
                               </SubmitButton>
                             </form>
                           </div>
-                        </details>
+                        </AutoCloseDetails>
                       </td>
                     </tr>
                   ) : null}
