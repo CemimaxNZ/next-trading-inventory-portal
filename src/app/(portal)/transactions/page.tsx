@@ -35,6 +35,8 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const filteredTransactions = selectedProductId
     ? transactions.filter((transaction) => transaction.product_id === selectedProductId)
     : transactions;
+  const visibleTransactions = filteredTransactions.slice(0, 10);
+  const olderTransactions = filteredTransactions.slice(10);
 
   return (
     <>
@@ -49,12 +51,12 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
         title="Transaction History"
       >
         <div className="space-y-4 md:hidden">
-          {filteredTransactions.length === 0 ? (
+          {visibleTransactions.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
               {selectedProductId ? "No transactions found for that product." : "No transactions recorded yet."}
             </div>
           ) : (
-            filteredTransactions.map((transaction) => (
+            visibleTransactions.map((transaction) => (
               <article
                 className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
                 key={transaction.id}
@@ -99,72 +101,183 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
                   </div>
                 </div>
               </article>
-            ))
+              ))
           )}
+
+          {olderTransactions.length > 0 ? (
+            <details className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <summary className="cursor-pointer text-sm font-semibold text-brand-700">
+                Show {olderTransactions.length} older transaction{olderTransactions.length === 1 ? "" : "s"}
+              </summary>
+              <div className="mt-4 space-y-4">
+                {olderTransactions.map((transaction) => (
+                  <article
+                    className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4"
+                    key={transaction.id}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-slate-950">
+                          {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-slate-500">{formatDate(transaction.created_at)}</p>
+                        <p
+                          className={`mt-1 text-base font-semibold ${
+                            transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
+                          }`}
+                        >
+                          {formatSignedQuantity(transaction.quantity)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-start">
+                      <StatusBadge value={transaction.type} />
+                    </div>
+
+                    <div className="grid gap-3 text-sm">
+                      <div className="rounded-2xl bg-white px-3 py-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Reason</p>
+                        <p className="mt-1 text-slate-700">{transaction.reason}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white px-3 py-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">User</p>
+                        <p className="mt-1 text-slate-700">
+                          {transaction.performed_by
+                            ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
+                            : "System"}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-full table-fixed text-left text-sm">
-            <colgroup>
-              <col className="w-[14%]" />
-              <col className="w-[28%]" />
-              <col className="w-[12%]" />
-              <col className="w-[16%]" />
-              <col className="w-[18%]" />
-              <col className="w-[12%]" />
-            </colgroup>
-            <thead className="border-b border-slate-200 text-slate-500">
-              <tr>
-                <th className="px-3 pb-3 font-medium text-center">Date</th>
-                <th className="pb-3 pr-4 font-medium text-left">Product</th>
-                <th className="px-3 pb-3 font-medium text-center">Quantity</th>
-                <th className="px-3 pb-3 font-medium text-center">Type</th>
-                <th className="pb-3 pr-4 font-medium text-left">Reason</th>
-                <th className="px-3 pb-3 font-medium text-center">User</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.length === 0 ? (
-                <tr className="border-b border-slate-100 last:border-b-0">
-                  <td className="py-8 text-center text-sm text-slate-500" colSpan={6}>
-                    {selectedProductId ? "No transactions found for that product." : "No transactions recorded yet."}
-                  </td>
+        <div className="hidden space-y-4 md:block">
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[14%]" />
+                <col className="w-[28%]" />
+                <col className="w-[12%]" />
+                <col className="w-[16%]" />
+                <col className="w-[18%]" />
+                <col className="w-[12%]" />
+              </colgroup>
+              <thead className="border-b border-slate-200 text-slate-500">
+                <tr>
+                  <th className="px-3 pb-3 font-medium text-center">Date</th>
+                  <th className="pb-3 pr-4 font-medium text-left">Product</th>
+                  <th className="px-3 pb-3 font-medium text-center">Quantity</th>
+                  <th className="px-3 pb-3 font-medium text-center">Type</th>
+                  <th className="pb-3 pr-4 font-medium text-left">Reason</th>
+                  <th className="px-3 pb-3 font-medium text-center">User</th>
                 </tr>
-              ) : (
-                filteredTransactions.map((transaction) => (
-                  <tr className="border-b border-slate-100 last:border-b-0" key={transaction.id}>
-                    <td className="px-3 py-4 text-center text-slate-600">{formatDate(transaction.created_at)}</td>
-                    <td className="py-4">
-                      <p className="font-medium text-slate-950">
-                        {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
-                      </p>
-                    </td>
-                    <td
-                      className={`px-3 py-4 text-center font-semibold ${
-                        transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
-                      }`}
-                    >
-                      {formatSignedQuantity(transaction.quantity)}
-                    </td>
-                    <td className="px-3 py-4 text-center">
-                      <div className="flex justify-center">
-                        <StatusBadge value={transaction.type} />
-                      </div>
-                    </td>
-                    <td className="py-4 text-slate-600">{transaction.reason}</td>
-                    <td className="px-3 py-4 text-center text-slate-600">
-                      {transaction.performed_by
-                        ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
-                        : "System"}
+              </thead>
+              <tbody>
+                {visibleTransactions.length === 0 ? (
+                  <tr className="border-b border-slate-100 last:border-b-0">
+                    <td className="py-8 text-center text-sm text-slate-500" colSpan={6}>
+                      {selectedProductId ? "No transactions found for that product." : "No transactions recorded yet."}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  visibleTransactions.map((transaction) => (
+                    <tr className="border-b border-slate-100 last:border-b-0" key={transaction.id}>
+                      <td className="px-3 py-4 text-center text-slate-600">{formatDate(transaction.created_at)}</td>
+                      <td className="py-4">
+                        <p className="font-medium text-slate-950">
+                          {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
+                        </p>
+                      </td>
+                      <td
+                        className={`px-3 py-4 text-center font-semibold ${
+                          transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
+                        }`}
+                      >
+                        {formatSignedQuantity(transaction.quantity)}
+                      </td>
+                      <td className="px-3 py-4 text-center">
+                        <div className="flex justify-center">
+                          <StatusBadge value={transaction.type} />
+                        </div>
+                      </td>
+                      <td className="py-4 text-slate-600">{transaction.reason}</td>
+                      <td className="px-3 py-4 text-center text-slate-600">
+                        {transaction.performed_by
+                          ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
+                          : "System"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {olderTransactions.length > 0 ? (
+            <details className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <summary className="cursor-pointer text-sm font-semibold text-brand-700">
+                Show {olderTransactions.length} older transaction{olderTransactions.length === 1 ? "" : "s"}
+              </summary>
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full table-fixed text-left text-sm">
+                  <colgroup>
+                    <col className="w-[14%]" />
+                    <col className="w-[28%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[18%]" />
+                    <col className="w-[12%]" />
+                  </colgroup>
+                  <tbody>
+                    {olderTransactions.map((transaction) => (
+                      <tr className="border-b border-slate-100 last:border-b-0" key={transaction.id}>
+                        <td className="px-3 py-4 text-center text-slate-600">{formatDate(transaction.created_at)}</td>
+                        <td className="py-4">
+                          <p className="font-medium text-slate-950">
+                            {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
+                          </p>
+                        </td>
+                        <td
+                          className={`px-3 py-4 text-center font-semibold ${
+                            transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
+                          }`}
+                        >
+                          {formatSignedQuantity(transaction.quantity)}
+                        </td>
+                        <td className="px-3 py-4 text-center">
+                          <div className="flex justify-center">
+                            <StatusBadge value={transaction.type} />
+                          </div>
+                        </td>
+                        <td className="py-4 text-slate-600">{transaction.reason}</td>
+                        <td className="px-3 py-4 text-center text-slate-600">
+                          {transaction.performed_by
+                            ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
+                            : "System"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ) : null}
         </div>
       </SectionCard>
     </>
