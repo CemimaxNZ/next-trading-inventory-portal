@@ -12,6 +12,7 @@ export const portalNav: PortalNavItem[] = [
   { href: "/purchase-orders", label: "Purchase Orders" },
   { href: "/shipments", label: "Shipments" },
   { href: "/transactions", label: "Transactions" },
+  { href: "/reports", label: "Reports" },
   { href: "/adjustments", label: "Stock Adjustments" },
   { href: "/users", label: "Users", roles: ["admin"] satisfies AppRole[] },
 ];

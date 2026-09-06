@@ -5,6 +5,7 @@ import {
   ArrowLeftRight,
   Boxes,
   ClipboardList,
+  FileDown,
   LayoutDashboard,
   SlidersHorizontal,
   Truck,
@@ -26,6 +27,7 @@ const iconMap = {
   "/purchase-orders": ClipboardList,
   "/shipments": Truck,
   "/transactions": ArrowLeftRight,
+  "/reports": FileDown,
   "/adjustments": SlidersHorizontal,
   "/users": Users,
 } as const;
