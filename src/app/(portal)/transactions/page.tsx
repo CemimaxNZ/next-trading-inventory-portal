@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Search } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -9,8 +11,31 @@ import type {
 import { requirePortalUser } from "@/lib/session";
 import { formatDate, formatSignedQuantity } from "@/lib/utils";
 
-export default async function TransactionsPage() {
+type TransactionsPageProps = {
+  searchParams?: Promise<{
+    query?: string;
+  }>;
+};
+
+function matchesTransactionQuery(
+  transaction: InventoryTransactionRow,
+  query: string,
+  productMap: Map<string, ProductRow>,
+) {
+  if (!query) {
+    return true;
+  }
+
+  const product = productMap.get(transaction.product_id);
+  const searchText = [product?.name ?? "", product?.sku ?? ""].join(" ").toLowerCase();
+
+  return searchText.includes(query);
+}
+
+export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
   const { supabase } = await requirePortalUser();
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const query = resolvedSearchParams?.query?.trim().toLowerCase() ?? "";
   const [{ data: transactionsData }, { data: productsData }, { data: profilesData }] =
     await Promise.all([
       supabase.from("inventory_transactions").select("*").order("created_at", { ascending: false }),
@@ -23,6 +48,9 @@ export default async function TransactionsPage() {
   const profiles = (profilesData ?? []) as ProfileRow[];
   const productMap = new Map(products.map((product) => [product.id, product]));
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
+  const filteredTransactions = transactions.filter((transaction) =>
+    matchesTransactionQuery(transaction, query, productMap),
+  );
 
   return (
     <>
@@ -33,15 +61,36 @@ export default async function TransactionsPage() {
 
       <SectionCard
         description="This ledger includes automated arrivals and manual adjustments."
+        headerAside={
+          <form action="/transactions" method="get" className="relative w-full md:w-[320px]">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              aria-label="Search transactions by product name or SKU"
+              className="input-field pl-11 pr-24"
+              defaultValue={resolvedSearchParams?.query ?? ""}
+              name="query"
+              placeholder="Search by product name or SKU"
+              type="search"
+            />
+            {query ? (
+              <Link
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50"
+                href="/transactions"
+              >
+                Clear
+              </Link>
+            ) : null}
+          </form>
+        }
         title="Transaction History"
       >
         <div className="space-y-4 md:hidden">
-          {transactions.length === 0 ? (
+          {filteredTransactions.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-              No transactions recorded yet.
+              {query ? "No transactions match that product search." : "No transactions recorded yet."}
             </div>
           ) : (
-            transactions.map((transaction) => (
+            filteredTransactions.map((transaction) => (
               <article
                 className="space-y-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
                 key={transaction.id}
@@ -111,37 +160,45 @@ export default async function TransactionsPage() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((transaction) => (
-                <tr className="border-b border-slate-100 last:border-b-0" key={transaction.id}>
-                  <td className="px-3 py-4 text-center text-slate-600">{formatDate(transaction.created_at)}</td>
-                  <td className="py-4">
-                    <p className="font-medium text-slate-950">
-                      {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
-                    </p>
-                  </td>
-                  <td
-                    className={`px-3 py-4 text-center font-semibold ${
-                      transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
-                    }`}
-                  >
-                    {formatSignedQuantity(transaction.quantity)}
-                  </td>
-                  <td className="px-3 py-4 text-center">
-                    <div className="flex justify-center">
-                      <StatusBadge value={transaction.type} />
-                    </div>
-                  </td>
-                  <td className="py-4 text-slate-600">{transaction.reason}</td>
-                  <td className="px-3 py-4 text-center text-slate-600">
-                    {transaction.performed_by
-                      ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
-                      : "System"}
+              {filteredTransactions.length === 0 ? (
+                <tr className="border-b border-slate-100 last:border-b-0">
+                  <td className="py-8 text-center text-sm text-slate-500" colSpan={6}>
+                    {query ? "No transactions match that product search." : "No transactions recorded yet."}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredTransactions.map((transaction) => (
+                  <tr className="border-b border-slate-100 last:border-b-0" key={transaction.id}>
+                    <td className="px-3 py-4 text-center text-slate-600">{formatDate(transaction.created_at)}</td>
+                    <td className="py-4">
+                      <p className="font-medium text-slate-950">
+                        {productMap.get(transaction.product_id)?.name ?? "Unknown product"}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {productMap.get(transaction.product_id)?.sku ?? "No SKU"}
+                      </p>
+                    </td>
+                    <td
+                      className={`px-3 py-4 text-center font-semibold ${
+                        transaction.quantity > 0 ? "text-emerald-700" : "text-rose-700"
+                      }`}
+                    >
+                      {formatSignedQuantity(transaction.quantity)}
+                    </td>
+                    <td className="px-3 py-4 text-center">
+                      <div className="flex justify-center">
+                        <StatusBadge value={transaction.type} />
+                      </div>
+                    </td>
+                    <td className="py-4 text-slate-600">{transaction.reason}</td>
+                    <td className="px-3 py-4 text-center text-slate-600">
+                      {transaction.performed_by
+                        ? profileMap.get(transaction.performed_by)?.full_name ?? "Unknown user"
+                        : "System"}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
