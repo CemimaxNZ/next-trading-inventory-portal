@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const startDate = searchParams.get("start")?.trim();
   const endDate = searchParams.get("end")?.trim();
-  const selectedProductId = searchParams.get("productId")?.trim();
+  const selectedProductIds = searchParams.getAll("productId").map((id) => id.trim()).filter(Boolean);
   const query = normalizeSearchTerm(searchParams.get("query"));
 
   let transactionsQuery = supabase
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   const matchingProductIds = new Set(
     products
       .filter((product) => {
-        if (selectedProductId && product.id !== selectedProductId) {
+        if (selectedProductIds.length > 0 && !selectedProductIds.includes(product.id)) {
           return false;
         }
 
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       .map((product) => product.id),
   );
   const filteredTransactions = transactions.filter((transaction) =>
-    selectedProductId || query ? matchingProductIds.has(transaction.product_id) : true,
+    selectedProductIds.length > 0 || query ? matchingProductIds.has(transaction.product_id) : true,
   );
   const rows = filteredTransactions.map((transaction) => {
     const product = productMap.get(transaction.product_id);

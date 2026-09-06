@@ -1,13 +1,22 @@
 import { Download, FileSpreadsheet } from "lucide-react";
+import { ReportProductMultiPicker } from "@/components/reports/report-product-multi-picker";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import type { ProductRow } from "@/lib/database.types";
 import { requirePortalUser } from "@/lib/session";
 
+
 export default async function ReportsPage() {
-  const { supabase } = await requirePortalUser();
+  const { supabase, profile } = await requirePortalUser();
   const { data: productsData } = await supabase.from("products").select("*").order("name");
   const products = (productsData ?? []) as ProductRow[];
+  const isAdmin = profile.role === "admin";
+  const productOptions = products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+  }));
+
 
   return (
     <>
@@ -16,32 +25,64 @@ export default async function ReportsPage() {
         title="Reports"
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <SectionCard
-          description="A complete snapshot of SKU, product name, current stock, and in-transit quantity."
+          description="Choose a product group, then download today's stock snapshot."
           title="Current Stock"
         >
-          <div className="flex h-full flex-col justify-between gap-6 rounded-3xl border border-slate-100 bg-slate-50 p-5">
-            <div className="flex items-start gap-4">
-              <div className="rounded-2xl bg-brand-100 p-3 text-brand-800">
-                <FileSpreadsheet className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-semibold text-slate-950">Current Stock Report</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Use this when you need today’s stock list. In Transit is calculated from active Paid and Shipped purchase orders, so it matches the portal pages.
-                </p>
+          <form action="/reports/current-stock" className="space-y-5" method="get">
+            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+              <div className="flex items-start gap-4">
+                <div className="rounded-2xl bg-brand-100 p-3 text-brand-800">
+                  <FileSpreadsheet className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-slate-950">Current Stock Report</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Download SKU, product name, current stock, and live in-transit quantity.
+                  </p>
+                </div>
               </div>
             </div>
-            <a className="btn-primary w-full gap-2 sm:w-fit" href="/reports/current-stock">
+
+
+            <div>
+              <label className="field-label" htmlFor="category">
+                Product Group
+              </label>
+              <select className="input-field" defaultValue="all" id="category" name="category">
+                <option value="all">All</option>
+                <option value="cemimax">Cemimax Products</option>
+                <option value="accessories">Accessories</option>
+              </select>
+            </div>
+
+
+            {isAdmin ? (
+              <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700">
+                <input
+                  className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-200"
+                  defaultChecked
+                  name="includeWarningLevel"
+                  type="checkbox"
+                  value="yes"
+                />
+                Show warning level in downloaded file
+              </label>
+            ) : null}
+
+
+            <button className="btn-primary w-full gap-2 sm:w-fit" type="submit">
               <Download className="h-4 w-4" />
               Download Current Stock
-            </a>
-          </div>
+            </button>
+          </form>
         </SectionCard>
 
+
         <SectionCard
-          description="Choose a date range and optionally filter by one product or a product keyword."
+          description="Choose a date range, product keyword, or several specific products."
           title="Transaction Report"
         >
           <form action="/reports/transactions" className="space-y-5" method="get">
@@ -64,19 +105,6 @@ export default async function ReportsPage() {
               </div>
             </div>
 
-            <div>
-              <label className="field-label" htmlFor="productId">
-                Product
-              </label>
-              <select className="input-field" id="productId" name="productId">
-                <option value="">All products</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.sku} - {product.name}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             <div>
               <label className="field-label" htmlFor="query">
@@ -96,9 +124,13 @@ export default async function ReportsPage() {
                 ))}
               </datalist>
               <p className="mt-2 text-xs text-slate-500">
-                Leave Product and Keyword empty to download all transaction records in the selected date range.
+                Use keyword for a broad search, or choose exact products below.
               </p>
             </div>
+
+
+            <ReportProductMultiPicker products={productOptions} />
+
 
             <button className="btn-primary w-full gap-2 sm:w-fit" type="submit">
               <Download className="h-4 w-4" />
