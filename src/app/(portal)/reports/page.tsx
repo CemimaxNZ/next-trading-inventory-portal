@@ -1,4 +1,5 @@
-import { Download, FileSpreadsheet } from "lucide-react";
+import Link from "next/link";
+import { Download, FileSpreadsheet, Mail } from "lucide-react";
 import { ReportProductMultiPicker } from "@/components/reports/report-product-multi-picker";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
@@ -23,7 +24,14 @@ export default async function ReportsPage() {
       <PageHeader
         description="Download clean CSV reports for inventory review, month-end checks, and product movement history."
         title="Reports"
-      />
+      >
+        {isAdmin ? (
+          <Link className="btn-secondary gap-2 whitespace-nowrap" href="/reports/weekly">
+            <Mail className="h-4 w-4" />
+            Weekly Report Preview
+          </Link>
+        ) : null}
+      </PageHeader>
 
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
