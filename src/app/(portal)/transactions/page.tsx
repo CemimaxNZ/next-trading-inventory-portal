@@ -1,8 +1,7 @@
-import Link from "next/link";
-import { Search } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { TransactionProductPicker } from "@/components/transactions/transaction-product-picker";
 import type {
   InventoryTransactionRow,
   ProductRow,
@@ -13,29 +12,14 @@ import { formatDate, formatSignedQuantity } from "@/lib/utils";
 
 type TransactionsPageProps = {
   searchParams?: Promise<{
-    query?: string;
+    productId?: string;
   }>;
 };
-
-function matchesTransactionQuery(
-  transaction: InventoryTransactionRow,
-  query: string,
-  productMap: Map<string, ProductRow>,
-) {
-  if (!query) {
-    return true;
-  }
-
-  const product = productMap.get(transaction.product_id);
-  const searchText = [product?.name ?? "", product?.sku ?? ""].join(" ").toLowerCase();
-
-  return searchText.includes(query);
-}
 
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
   const { supabase } = await requirePortalUser();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const query = resolvedSearchParams?.query?.trim().toLowerCase() ?? "";
+  const selectedProductId = resolvedSearchParams?.productId ?? "";
   const [{ data: transactionsData }, { data: productsData }, { data: profilesData }] =
     await Promise.all([
       supabase.from("inventory_transactions").select("*").order("created_at", { ascending: false }),
@@ -48,9 +32,9 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const profiles = (profilesData ?? []) as ProfileRow[];
   const productMap = new Map(products.map((product) => [product.id, product]));
   const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
-  const filteredTransactions = transactions.filter((transaction) =>
-    matchesTransactionQuery(transaction, query, productMap),
-  );
+  const filteredTransactions = selectedProductId
+    ? transactions.filter((transaction) => transaction.product_id === selectedProductId)
+    : transactions;
 
   return (
     <>
@@ -61,33 +45,13 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
 
       <SectionCard
         description="This ledger includes automated arrivals and manual adjustments."
-        headerAside={
-          <form action="/transactions" method="get" className="relative w-full md:w-[320px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              aria-label="Search transactions by product name or SKU"
-              className="input-field pl-11 pr-24"
-              defaultValue={resolvedSearchParams?.query ?? ""}
-              name="query"
-              placeholder="Search by product name or SKU"
-              type="search"
-            />
-            {query ? (
-              <Link
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full px-3 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50"
-                href="/transactions"
-              >
-                Clear
-              </Link>
-            ) : null}
-          </form>
-        }
+        headerAside={<TransactionProductPicker products={products} selectedProductId={selectedProductId} />}
         title="Transaction History"
       >
         <div className="space-y-4 md:hidden">
           {filteredTransactions.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-              {query ? "No transactions match that product search." : "No transactions recorded yet."}
+              {selectedProductId ? "No transactions found for that product." : "No transactions recorded yet."}
             </div>
           ) : (
             filteredTransactions.map((transaction) => (
@@ -163,7 +127,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
               {filteredTransactions.length === 0 ? (
                 <tr className="border-b border-slate-100 last:border-b-0">
                   <td className="py-8 text-center text-sm text-slate-500" colSpan={6}>
-                    {query ? "No transactions match that product search." : "No transactions recorded yet."}
+                    {selectedProductId ? "No transactions found for that product." : "No transactions recorded yet."}
                   </td>
                 </tr>
               ) : (
