@@ -106,29 +106,6 @@ export default async function ReportsPage() {
             </div>
 
 
-            <div>
-              <label className="field-label" htmlFor="query">
-                Product Keyword or SKU
-              </label>
-              <input
-                className="input-field"
-                id="query"
-                list="report-products"
-                name="query"
-                placeholder="Type product name or SKU"
-                type="search"
-              />
-              <datalist id="report-products">
-                {products.map((product) => (
-                  <option key={product.id} value={`${product.sku} ${product.name}`} />
-                ))}
-              </datalist>
-              <p className="mt-2 text-xs text-slate-500">
-                Use keyword for a broad search, or choose exact products below.
-              </p>
-            </div>
-
-
             <ReportProductMultiPicker products={productOptions} />
 
 

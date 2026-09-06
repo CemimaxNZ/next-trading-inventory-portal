@@ -40,7 +40,7 @@ export function ReportProductMultiPicker({ products }: ReportProductMultiPickerP
 
 
     if (!normalizedQuery) {
-      return availableProducts.slice(0, 8);
+      return [];
 
     }
 
@@ -50,6 +50,7 @@ export function ReportProductMultiPicker({ products }: ReportProductMultiPickerP
     );
 
   }, [products, query, selectedIds]);
+  const hasSearchQuery = query.trim().length > 0;
 
 
   function addProduct(productId: string) {
@@ -116,30 +117,32 @@ export function ReportProductMultiPicker({ products }: ReportProductMultiPickerP
         </div>
 
 
-        <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => (
-              <button
-                className="flex w-full items-start justify-between gap-3 rounded-2xl bg-white px-3 py-2.5 text-left text-sm transition hover:bg-brand-50"
-                key={product.id}
-                onClick={() => addProduct(product.id)}
-                type="button"
-              >
-                <span>
-                  <span className="block font-medium text-slate-900">{product.name}</span>
-                  <span className="mt-0.5 block text-xs text-slate-500">{product.sku}</span>
-                </span>
-                <span className="shrink-0 rounded-full bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700">
-                  Add
-                </span>
-              </button>
-            ))
-          ) : (
-            <div className="rounded-2xl bg-white px-3 py-3 text-sm text-slate-500">
-              No products found for this keyword.
-            </div>
-          )}
-        </div>
+        {hasSearchQuery ? (
+          <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((product) => (
+                <button
+                  className="flex w-full items-start justify-between gap-3 rounded-2xl bg-white px-3 py-2.5 text-left text-sm transition hover:bg-brand-50"
+                  key={product.id}
+                  onClick={() => addProduct(product.id)}
+                  type="button"
+                >
+                  <span>
+                    <span className="block font-medium text-slate-900">{product.name}</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">{product.sku}</span>
+                  </span>
+                  <span className="shrink-0 rounded-full bg-brand-50 px-2 py-1 text-[11px] font-semibold text-brand-700">
+                    Add
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="rounded-2xl bg-white px-3 py-3 text-sm text-slate-500">
+                No products found for this keyword.
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
 
