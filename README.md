@@ -38,6 +38,11 @@ Internal inventory management portal built with Next.js 15 App Router, TypeScrip
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
+   - `RESEND_API_KEY`
+   - `WEEKLY_REPORT_FROM_EMAIL`
+   - `WEEKLY_REPORT_RECIPIENTS`
+   - `CRON_SECRET`
+   - `WEEKLY_REPORT_TIME_ZONE`
 
 4. In the Supabase SQL editor, run:
 
@@ -73,6 +78,8 @@ Internal inventory management portal built with Next.js 15 App Router, TypeScrip
 - Shipments support ETD, ETA, status, and linking multiple purchase orders in one container.
 - Operators can adjust stock and update shipment / purchase order statuses, but cannot manage users or delete products.
 - Product creation and editing are restricted to admins in this implementation.
+- Admins can preview the weekly inventory report at `/reports/weekly`.
+- The weekly report endpoint sends the report through Resend when invoked by Vercel Cron on Monday at 2:00 AM in `WEEKLY_REPORT_TIME_ZONE`.
 
 ## Recommended deployment workflow
 
